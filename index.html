@@ -1,0 +1,755 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>阶段进度汇报</title>
+  <style>
+    :root {
+      --ink: #17202a;
+      --muted: #607080;
+      --line: #d7dee8;
+      --paper: #f6f2ea;
+      --surface: #ffffff;
+      --green: #0f7f69;
+      --blue: #2f67b1;
+      --red: #c74b43;
+      --gold: #b98020;
+      --shadow: 0 24px 70px rgba(23, 32, 42, 0.18);
+    }
+
+    * {
+      box-sizing: border-box;
+    }
+
+    html,
+    body {
+      height: 100%;
+    }
+
+    body {
+      margin: 0;
+      background:
+        radial-gradient(circle at 12% 14%, rgba(15, 127, 105, 0.14), transparent 28%),
+        radial-gradient(circle at 92% 18%, rgba(199, 75, 67, 0.12), transparent 26%),
+        linear-gradient(135deg, #eef4f3 0%, var(--paper) 48%, #edf1f8 100%);
+      color: var(--ink);
+      font-family: "Microsoft YaHei", "PingFang SC", "Noto Sans SC", Arial, sans-serif;
+      overflow: hidden;
+    }
+
+    .deck {
+      position: relative;
+      display: grid;
+      min-height: 100%;
+      place-items: center;
+      padding: 36px 36px 72px;
+    }
+
+    .slide {
+      position: absolute;
+      display: none;
+      width: min(1180px, calc(100vw - 72px));
+      min-height: min(664px, calc(100vh - 128px));
+      overflow: hidden;
+      background: var(--surface);
+      border: 1px solid rgba(23, 32, 42, 0.08);
+      border-radius: 8px;
+      box-shadow: var(--shadow);
+      isolation: isolate;
+    }
+
+    .slide.active {
+      display: block;
+      animation: enter 260ms ease-out;
+    }
+
+    @keyframes enter {
+      from {
+        opacity: 0;
+        transform: translateY(8px) scale(0.992);
+      }
+      to {
+        opacity: 1;
+        transform: translateY(0) scale(1);
+      }
+    }
+
+    .slide::before {
+      content: "";
+      position: absolute;
+      inset: 0 auto 0 0;
+      width: 12px;
+      background: linear-gradient(180deg, var(--green), var(--blue) 48%, var(--red));
+      z-index: -1;
+    }
+
+    .slide::after {
+      content: "";
+      position: absolute;
+      right: -120px;
+      bottom: -150px;
+      width: 430px;
+      height: 430px;
+      border: 46px solid rgba(47, 103, 177, 0.08);
+      border-radius: 50%;
+      z-index: -1;
+    }
+
+    .slide-inner {
+      display: grid;
+      min-height: inherit;
+      padding: clamp(34px, 5vw, 68px);
+      gap: 28px;
+    }
+
+    .cover {
+      grid-template-columns: 1.06fr 0.94fr;
+      align-items: center;
+    }
+
+    .section {
+      grid-template-rows: auto 1fr;
+    }
+
+    .eyebrow {
+      color: var(--green);
+      font-size: clamp(14px, 1.5vw, 18px);
+      font-weight: 700;
+      letter-spacing: 0;
+    }
+
+    h1,
+    h2,
+    h3,
+    p {
+      margin: 0;
+    }
+
+    h1 {
+      max-width: 760px;
+      font-size: clamp(48px, 6vw, 82px);
+      line-height: 1.04;
+      letter-spacing: 0;
+    }
+
+    h2 {
+      font-size: clamp(34px, 4.2vw, 58px);
+      line-height: 1.1;
+      letter-spacing: 0;
+    }
+
+    h3 {
+      font-size: clamp(19px, 2vw, 25px);
+      line-height: 1.25;
+      letter-spacing: 0;
+    }
+
+    .lead {
+      max-width: 820px;
+      color: var(--muted);
+      font-size: clamp(19px, 2vw, 25px);
+      line-height: 1.55;
+    }
+
+    .meta {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 10px;
+      margin-top: 30px;
+      color: #314151;
+      font-size: 15px;
+    }
+
+    .tag {
+      display: inline-flex;
+      align-items: center;
+      min-height: 34px;
+      padding: 6px 12px;
+      border: 1px solid var(--line);
+      border-radius: 999px;
+      background: rgba(255, 255, 255, 0.72);
+    }
+
+    .visual {
+      position: relative;
+      min-height: 430px;
+    }
+
+    .board {
+      position: absolute;
+      inset: 38px 14px 48px 20px;
+      border: 1px solid rgba(23, 32, 42, 0.12);
+      border-radius: 8px;
+      background:
+        linear-gradient(90deg, rgba(23, 32, 42, 0.05) 1px, transparent 1px),
+        linear-gradient(rgba(23, 32, 42, 0.05) 1px, transparent 1px),
+        #fbfcfd;
+      background-size: 32px 32px;
+      box-shadow: 0 18px 40px rgba(23, 32, 42, 0.14);
+      transform: rotate(-2deg);
+    }
+
+    .node {
+      position: absolute;
+      display: grid;
+      width: clamp(110px, 14vw, 172px);
+      min-height: 92px;
+      place-items: center;
+      padding: 16px;
+      border: 1px solid rgba(23, 32, 42, 0.1);
+      border-radius: 8px;
+      background: #fff;
+      box-shadow: 0 12px 30px rgba(23, 32, 42, 0.12);
+      font-weight: 800;
+      text-align: center;
+    }
+
+    .node small {
+      display: block;
+      margin-top: 6px;
+      color: var(--muted);
+      font-size: 13px;
+      font-weight: 600;
+    }
+
+    .node.github {
+      top: 42px;
+      left: 2px;
+      color: var(--blue);
+    }
+
+    .node.cli {
+      right: 8px;
+      top: 118px;
+      color: var(--green);
+    }
+
+    .node.api {
+      left: 112px;
+      bottom: 18px;
+      color: var(--red);
+    }
+
+    .line {
+      position: absolute;
+      height: 3px;
+      border-radius: 999px;
+      background: rgba(23, 32, 42, 0.32);
+      transform-origin: left center;
+    }
+
+    .line.one {
+      left: 154px;
+      top: 130px;
+      width: 205px;
+      transform: rotate(18deg);
+    }
+
+    .line.two {
+      right: 130px;
+      top: 238px;
+      width: 210px;
+      transform: rotate(134deg);
+    }
+
+    .split {
+      display: grid;
+      grid-template-columns: repeat(2, minmax(0, 1fr));
+      gap: 22px;
+      align-items: stretch;
+    }
+
+    .panel {
+      display: grid;
+      align-content: start;
+      gap: 16px;
+      min-height: 100%;
+      padding: clamp(22px, 3vw, 34px);
+      border: 1px solid var(--line);
+      border-radius: 8px;
+      background: #fbfcfd;
+    }
+
+    .panel strong {
+      color: var(--blue);
+    }
+
+    .list {
+      display: grid;
+      gap: 14px;
+      margin: 0;
+      padding: 0;
+      list-style: none;
+    }
+
+    .list li {
+      position: relative;
+      padding-left: 32px;
+      color: #344455;
+      font-size: clamp(17px, 1.8vw, 22px);
+      line-height: 1.55;
+    }
+
+    .list li::before {
+      content: "";
+      position: absolute;
+      left: 0;
+      top: 0.66em;
+      width: 12px;
+      height: 12px;
+      border: 3px solid var(--green);
+      border-radius: 50%;
+      background: white;
+    }
+
+    .flow {
+      display: grid;
+      grid-template-columns: repeat(5, minmax(0, 1fr));
+      align-items: center;
+      gap: 10px;
+      margin-top: 18px;
+    }
+
+    .step {
+      display: grid;
+      min-height: 150px;
+      align-content: center;
+      gap: 10px;
+      padding: 20px 14px;
+      border: 1px solid var(--line);
+      border-radius: 8px;
+      background: #fff;
+      text-align: center;
+    }
+
+    .step svg {
+      width: 36px;
+      height: 36px;
+      margin: 0 auto;
+      color: var(--blue);
+    }
+
+    .step b {
+      font-size: clamp(16px, 1.6vw, 20px);
+    }
+
+    .step span {
+      color: var(--muted);
+      font-size: 14px;
+      line-height: 1.35;
+    }
+
+    .arrow {
+      color: var(--gold);
+      font-size: 28px;
+      font-weight: 900;
+      text-align: center;
+    }
+
+    .outcome-grid {
+      display: grid;
+      grid-template-columns: 1fr 1fr 1fr;
+      gap: 18px;
+      align-items: stretch;
+    }
+
+    .metric {
+      display: grid;
+      align-content: center;
+      gap: 12px;
+      min-height: 206px;
+      padding: 28px;
+      border: 1px solid var(--line);
+      border-radius: 8px;
+      background: #fbfcfd;
+    }
+
+    .metric .num {
+      color: var(--red);
+      font-size: clamp(44px, 5vw, 66px);
+      font-weight: 900;
+      line-height: 1;
+    }
+
+    .metric p {
+      color: #344455;
+      font-size: clamp(16px, 1.6vw, 20px);
+      line-height: 1.5;
+    }
+
+    .summary {
+      display: grid;
+      align-content: center;
+      gap: 24px;
+      max-width: 900px;
+    }
+
+    .summary h2 {
+      color: var(--ink);
+    }
+
+    .summary .lead {
+      color: #344455;
+    }
+
+    .controls {
+      position: fixed;
+      left: 50%;
+      bottom: 18px;
+      z-index: 10;
+      display: flex;
+      align-items: center;
+      gap: 12px;
+      padding: 8px 12px;
+      border: 1px solid rgba(23, 32, 42, 0.14);
+      border-radius: 999px;
+      background: rgba(255, 255, 255, 0.78);
+      box-shadow: 0 12px 36px rgba(23, 32, 42, 0.16);
+      backdrop-filter: blur(12px);
+      transform: translateX(-50%);
+    }
+
+    .icon-button {
+      display: grid;
+      width: 38px;
+      height: 38px;
+      place-items: center;
+      border: 0;
+      border-radius: 50%;
+      background: var(--ink);
+      color: white;
+      cursor: pointer;
+    }
+
+    .icon-button:disabled {
+      cursor: not-allowed;
+      opacity: 0.38;
+    }
+
+    .icon-button svg {
+      width: 20px;
+      height: 20px;
+    }
+
+    .count {
+      min-width: 58px;
+      color: #344455;
+      font-size: 14px;
+      font-weight: 700;
+      text-align: center;
+    }
+
+    .progress {
+      position: fixed;
+      left: 0;
+      right: 0;
+      bottom: 0;
+      z-index: 9;
+      height: 5px;
+      background: rgba(23, 32, 42, 0.1);
+    }
+
+    .progress span {
+      display: block;
+      width: 20%;
+      height: 100%;
+      background: linear-gradient(90deg, var(--green), var(--blue), var(--red));
+      transition: width 180ms ease;
+    }
+
+    @media (max-width: 850px) {
+      body {
+        overflow: auto;
+      }
+
+      .deck {
+        min-height: auto;
+        padding: 18px 14px 86px;
+      }
+
+      .slide {
+        position: relative;
+        width: 100%;
+        min-height: calc(100vh - 116px);
+      }
+
+      .slide-inner,
+      .cover,
+      .split,
+      .outcome-grid {
+        grid-template-columns: 1fr;
+      }
+
+      .visual {
+        min-height: 300px;
+      }
+
+      .board {
+        inset: 22px 20px 26px;
+      }
+
+      .node.github {
+        top: 28px;
+        left: 6px;
+      }
+
+      .node.cli {
+        right: 2px;
+        top: 92px;
+      }
+
+      .node.api {
+        left: 58px;
+        bottom: 0;
+      }
+
+      .line.one,
+      .line.two {
+        display: none;
+      }
+
+      .flow {
+        grid-template-columns: 1fr;
+      }
+
+      .arrow {
+        transform: rotate(90deg);
+      }
+
+      .controls {
+        width: calc(100vw - 28px);
+        justify-content: center;
+      }
+    }
+
+    @media print {
+      body {
+        overflow: visible;
+        background: white;
+      }
+
+      .deck {
+        display: block;
+        padding: 0;
+      }
+
+      .slide {
+        position: relative;
+        display: block;
+        width: 100vw;
+        min-height: 100vh;
+        border: 0;
+        border-radius: 0;
+        box-shadow: none;
+        page-break-after: always;
+      }
+
+      .controls,
+      .progress {
+        display: none;
+      }
+    }
+  </style>
+</head>
+<body>
+  <main class="deck" aria-label="阶段进度汇报幻灯片">
+    <section class="slide active" aria-label="封面">
+      <div class="slide-inner cover">
+        <div>
+          <p class="eyebrow">阶段进度汇报</p>
+          <h1>开发工具与平台接入学习进展</h1>
+          <p class="lead">围绕 GitHub 访问、AI 编程 CLI 工具安装，以及通过第三方中转平台接入模型服务完成基础环境搭建。</p>
+          <div class="meta">
+            <span class="tag">GitHub</span>
+            <span class="tag">Claude Code CLI</span>
+            <span class="tag">Codex CLI</span>
+            <span class="tag">cc switch</span>
+            <span class="tag">SAIL API</span>
+          </div>
+        </div>
+        <div class="visual" aria-hidden="true">
+          <div class="board"></div>
+          <div class="line one"></div>
+          <div class="line two"></div>
+          <div class="node github">GitHub<small>访问与功能</small></div>
+          <div class="node cli">CLI 工具<small>安装配置</small></div>
+          <div class="node api">SAIL API<small>中转接入</small></div>
+        </div>
+      </div>
+    </section>
+
+    <section class="slide" aria-label="GitHub 学习">
+      <div class="slide-inner section">
+        <div>
+          <p class="eyebrow">01 / GitHub 访问与使用</p>
+          <h2>掌握了 GitHub 的基础访问方式和常用功能</h2>
+        </div>
+        <div class="split">
+          <article class="panel">
+            <h3>已完成内容</h3>
+            <ul class="list">
+              <li>学会访问 GitHub，并了解平台在代码托管、协作开发中的作用。</li>
+              <li>认识仓库、分支、提交记录、Issue、Pull Request 等核心功能。</li>
+              <li>理解了 GitHub 在项目管理、版本追踪和团队协作中的基本使用方法。</li>
+            </ul>
+          </article>
+          <article class="panel">
+            <h3>阶段价值</h3>
+            <ul class="list">
+              <li>后续可以通过仓库管理学习资料、代码文件和项目文档。</li>
+              <li>能够更清晰地追踪每次修改，减少文件版本混乱。</li>
+              <li>为后续使用 CLI 工具进行代码开发和协作打下基础。</li>
+            </ul>
+          </article>
+        </div>
+      </div>
+    </section>
+
+    <section class="slide" aria-label="工具安装">
+      <div class="slide-inner section">
+        <div>
+          <p class="eyebrow">02 / CLI 工具环境</p>
+          <h2>完成 Claude Code CLI、Codex CLI 和 cc switch 安装</h2>
+        </div>
+        <div class="outcome-grid">
+          <article class="metric">
+            <div class="num">01</div>
+            <h3>Claude Code CLI</h3>
+            <p>已完成安装，具备在命令行中调用 Claude Code 辅助开发的基础条件。</p>
+          </article>
+          <article class="metric">
+            <div class="num">02</div>
+            <h3>Codex CLI</h3>
+            <p>已完成安装，能够通过命令行进入 Codex 编程助手工作流。</p>
+          </article>
+          <article class="metric">
+            <div class="num">03</div>
+            <h3>cc switch</h3>
+            <p>已完成安装，用于切换和管理 Claude Code CLI、Codex CLI 的相关接入配置。</p>
+          </article>
+        </div>
+      </div>
+    </section>
+
+    <section class="slide" aria-label="SAIL API 接入">
+      <div class="slide-inner section">
+        <div>
+          <p class="eyebrow">03 / 第三方中转平台</p>
+          <h2>学习通过 SAIL API 结合 cc switch 使用 CLI 工具</h2>
+          <p class="lead">第三方中转平台地址：https://api.sailapi.top</p>
+        </div>
+        <div>
+          <div class="flow" aria-label="接入流程">
+            <div class="step">
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true"><path d="M4 7h16M4 12h16M4 17h10"/></svg>
+              <b>准备 CLI</b>
+              <span>安装并确认命令行工具可用</span>
+            </div>
+            <div class="arrow">→</div>
+            <div class="step">
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true"><path d="M12 3v18M5 8h14M7 16h10"/></svg>
+              <b>配置中转</b>
+              <span>使用 SAIL API 作为访问入口</span>
+            </div>
+            <div class="arrow">→</div>
+            <div class="step">
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true"><path d="M8 7h8M8 12h8M8 17h5"/><rect x="4" y="3" width="16" height="18" rx="2"/></svg>
+              <b>切换使用</b>
+              <span>通过 cc switch 管理 Claude Code CLI 与 Codex CLI</span>
+            </div>
+          </div>
+          <div class="split" style="margin-top: 22px;">
+            <article class="panel">
+              <h3>学习到的能力</h3>
+              <ul class="list">
+                <li>理解了第三方 API 中转平台在 CLI 工具接入中的作用。</li>
+                <li>了解了通过统一配置来切换不同 AI 编程工具的方式。</li>
+              </ul>
+            </article>
+            <article class="panel">
+              <h3>后续应用方向</h3>
+              <ul class="list">
+                <li>在实际代码项目中尝试用 Claude Code CLI 和 Codex CLI 辅助开发。</li>
+                <li>继续完善环境配置、命令使用记录和常见问题处理流程。</li>
+              </ul>
+            </article>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <section class="slide" aria-label="总结">
+      <div class="slide-inner">
+        <div class="summary">
+          <p class="eyebrow">04 / 阶段总结</p>
+          <h2>已从平台认知进入工具实操阶段</h2>
+          <p class="lead">本阶段完成了 GitHub 基础使用学习，搭建了 Claude Code CLI、Codex CLI 与 cc switch 工具环境，并初步掌握通过 SAIL API 中转平台接入和切换 AI 编程工具的方法。</p>
+          <ul class="list">
+            <li>基础平台：GitHub 访问、功能理解、使用方法学习。</li>
+            <li>本地工具：Claude Code CLI、Codex CLI、cc switch 安装完成。</li>
+            <li>接入方式：了解 SAIL API 与 cc switch 结合使用的流程。</li>
+          </ul>
+        </div>
+      </div>
+    </section>
+  </main>
+
+  <nav class="controls" aria-label="幻灯片控制">
+    <button class="icon-button" type="button" id="prev" title="上一页" aria-label="上一页">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true"><path d="m15 18-6-6 6-6"/></svg>
+    </button>
+    <span class="count" id="count">1 / 5</span>
+    <button class="icon-button" type="button" id="next" title="下一页" aria-label="下一页">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true"><path d="m9 18 6-6-6-6"/></svg>
+    </button>
+    <button class="icon-button" type="button" id="print" title="打印或导出 PDF" aria-label="打印或导出 PDF">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true"><path d="M6 9V3h12v6"/><path d="M6 18H4a2 2 0 0 1-2-2v-5a2 2 0 0 1 2-2h16a2 2 0 0 1 2 2v5a2 2 0 0 1-2 2h-2"/><path d="M6 14h12v7H6z"/></svg>
+    </button>
+  </nav>
+  <div class="progress" aria-hidden="true"><span id="bar"></span></div>
+
+  <script>
+    const slides = Array.from(document.querySelectorAll(".slide"));
+    const prevButton = document.querySelector("#prev");
+    const nextButton = document.querySelector("#next");
+    const printButton = document.querySelector("#print");
+    const count = document.querySelector("#count");
+    const bar = document.querySelector("#bar");
+    let current = 0;
+
+    function showSlide(index) {
+      current = Math.max(0, Math.min(index, slides.length - 1));
+      slides.forEach((slide, slideIndex) => {
+        slide.classList.toggle("active", slideIndex === current);
+      });
+      prevButton.disabled = current === 0;
+      nextButton.disabled = current === slides.length - 1;
+      count.textContent = `${current + 1} / ${slides.length}`;
+      bar.style.width = `${((current + 1) / slides.length) * 100}%`;
+    }
+
+    prevButton.addEventListener("click", () => showSlide(current - 1));
+    nextButton.addEventListener("click", () => showSlide(current + 1));
+    printButton.addEventListener("click", () => window.print());
+
+    window.addEventListener("keydown", (event) => {
+      if (event.key === "ArrowLeft" || event.key === "PageUp") {
+        showSlide(current - 1);
+      }
+      if (event.key === "ArrowRight" || event.key === "PageDown" || event.key === " ") {
+        event.preventDefault();
+        showSlide(current + 1);
+      }
+      if (event.key === "Home") {
+        showSlide(0);
+      }
+      if (event.key === "End") {
+        showSlide(slides.length - 1);
+      }
+    });
+
+    showSlide(0);
+  </script>
+</body>
+</html>

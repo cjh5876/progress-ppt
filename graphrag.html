@@ -1,12 +1,793 @@
 <!DOCTYPE html>
 <html lang="zh-CN">
 <head>
-  <meta charset="UTF-8">
-  <meta http-equiv="refresh" content="0; url=./index.html">
-  <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>GraphRAG 进度汇报</title>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>GraphRAG 群聊人物关系分析 · 项目汇报</title>
+<style>
+:root {
+  --bg: #fafafa;
+  --fg: #1a1a1a;
+  --muted: #64748b;
+  --accent: #2563eb;
+  --accent-soft: #dbeafe;
+  --card: #ffffff;
+  --border: #e5e7eb;
+  --code-bg: #0f172a;
+  --code-fg: #e2e8f0;
+}
+[data-theme="dark"] {
+  --bg: #0f1115;
+  --fg: #f1f5f9;
+  --muted: #94a3b8;
+  --accent: #60a5fa;
+  --accent-soft: #1e293b;
+  --card: #171923;
+  --border: #262a36;
+  --code-bg: #05070c;
+  --code-fg: #e2e8f0;
+}
+* { box-sizing: border-box; margin: 0; padding: 0; }
+html, body {
+  height: 100%;
+  font-family: -apple-system, BlinkMacSystemFont, "PingFang SC",
+               "Microsoft YaHei", "Segoe UI", Roboto, sans-serif;
+  background: var(--bg);
+  color: var(--fg);
+  overflow: hidden;
+  transition: background .3s, color .3s;
+}
+.progress {
+  position: fixed; top: 0; left: 0; height: 3px;
+  background: var(--accent);
+  width: 0%; z-index: 100;
+  transition: width .35s cubic-bezier(.4,0,.2,1);
+}
+.counter {
+  position: fixed; right: 20px; bottom: 20px;
+  color: var(--muted); font-size: 13px;
+  font-variant-numeric: tabular-nums;
+  z-index: 50; user-select: none;
+}
+.hint {
+  position: fixed; left: 20px; bottom: 20px;
+  color: var(--muted); font-size: 12px;
+  z-index: 50; user-select: none;
+}
+.hint kbd {
+  padding: 2px 6px; border: 1px solid var(--border);
+  border-radius: 3px; background: var(--card);
+  font-family: ui-monospace, Consolas, monospace;
+  font-size: 11px; margin: 0 2px;
+}
+.theme-toggle {
+  position: fixed; right: 20px; top: 20px;
+  width: 32px; height: 32px; border-radius: 50%;
+  border: 1px solid var(--border);
+  background: var(--card); color: var(--fg);
+  cursor: pointer; font-size: 14px;
+  z-index: 50;
+  display: flex; align-items: center; justify-content: center;
+}
+.deck {
+  height: 100vh; width: 100vw;
+  position: relative;
+  overflow: hidden;
+}
+.slide {
+  position: absolute; inset: 0;
+  padding: 8vh 10vw;
+  display: flex; flex-direction: column;
+  justify-content: center;
+  opacity: 0;
+  transform: translateX(30px);
+  transition: opacity .4s ease, transform .4s ease;
+  pointer-events: none;
+  overflow-y: auto;
+}
+.slide.active {
+  opacity: 1; transform: translateX(0);
+  pointer-events: auto;
+}
+.slide.prev {
+  transform: translateX(-30px);
+}
+.eyebrow {
+  color: var(--accent); font-size: 13px;
+  letter-spacing: 3px; text-transform: uppercase;
+  margin-bottom: 14px; font-weight: 600;
+}
+h1 {
+  font-size: clamp(32px, 5vw, 60px);
+  font-weight: 700; line-height: 1.15;
+  margin-bottom: 20px; letter-spacing: -0.02em;
+}
+h2 {
+  font-size: clamp(24px, 3.4vw, 40px);
+  font-weight: 700; line-height: 1.2;
+  margin-bottom: 24px; letter-spacing: -0.01em;
+}
+h3 {
+  font-size: clamp(16px, 1.6vw, 20px);
+  font-weight: 600; margin-bottom: 8px;
+}
+p, li {
+  font-size: clamp(15px, 1.4vw, 18px);
+  line-height: 1.7; color: var(--fg);
+}
+.subtitle {
+  font-size: clamp(16px, 1.6vw, 22px);
+  color: var(--muted); margin-bottom: 40px;
+  line-height: 1.5;
+}
+.meta-line {
+  color: var(--muted); font-size: 14px;
+  margin-top: 40px; letter-spacing: 1px;
+}
+ul { list-style: none; }
+li {
+  padding: 10px 0; padding-left: 22px;
+  position: relative;
+}
+li::before {
+  content: ""; position: absolute;
+  left: 0; top: 20px;
+  width: 6px; height: 6px; border-radius: 50%;
+  background: var(--accent);
+}
+.grid {
+  display: grid; gap: 16px;
+  margin-top: 20px;
+}
+.grid.g2 { grid-template-columns: 1fr 1fr; }
+.grid.g3 { grid-template-columns: repeat(3, 1fr); }
+.grid.g4 { grid-template-columns: repeat(4, 1fr); }
+.card {
+  background: var(--card);
+  border: 1px solid var(--border);
+  border-radius: 10px;
+  padding: 20px 22px;
+}
+.card .k {
+  font-size: 12px; color: var(--muted);
+  letter-spacing: 1px; text-transform: uppercase;
+}
+.card .v {
+  font-size: clamp(28px, 3.6vw, 42px);
+  font-weight: 700; margin-top: 6px;
+  color: var(--fg); letter-spacing: -0.02em;
+  font-variant-numeric: tabular-nums;
+}
+.card .d {
+  font-size: 13px; color: var(--muted);
+  margin-top: 6px;
+}
+.pill {
+  display: inline-block;
+  padding: 4px 10px; margin: 0 4px 6px 0;
+  background: var(--accent-soft);
+  color: var(--accent);
+  border-radius: 999px; font-size: 13px;
+  font-weight: 500;
+}
+[data-theme="dark"] .pill { color: var(--fg); }
+.step {
+  display: flex; align-items: flex-start;
+  gap: 16px; padding: 14px 0;
+  border-bottom: 1px solid var(--border);
+}
+.step:last-child { border-bottom: none; }
+.step .n {
+  min-width: 32px; height: 32px;
+  border-radius: 50%;
+  background: var(--accent);
+  color: white; font-weight: 700;
+  display: flex; align-items: center; justify-content: center;
+  font-size: 14px;
+}
+.step .body { flex: 1; }
+.step .body h3 { margin-bottom: 4px; }
+.step .body p { font-size: 15px; color: var(--muted); }
+pre {
+  background: var(--code-bg);
+  color: var(--code-fg);
+  padding: 18px 22px;
+  border-radius: 8px;
+  font-family: ui-monospace, "SF Mono", Consolas, monospace;
+  font-size: clamp(11px, 1.05vw, 14px);
+  line-height: 1.55;
+  overflow-x: auto;
+  margin-top: 16px;
+}
+pre .c { color: #64748b; }
+pre .k { color: #f472b6; }
+pre .s { color: #86efac; }
+pre .n { color: #fbbf24; }
+table {
+  width: 100%; border-collapse: collapse;
+  margin-top: 16px; font-size: 15px;
+}
+th, td {
+  padding: 10px 14px; text-align: left;
+  border-bottom: 1px solid var(--border);
+}
+th {
+  color: var(--muted); font-weight: 600;
+  font-size: 13px; text-transform: uppercase;
+  letter-spacing: 1px;
+}
+td.num {
+  text-align: right;
+  font-variant-numeric: tabular-nums;
+}
+.bar {
+  height: 6px; background: var(--border);
+  border-radius: 3px; overflow: hidden;
+  margin-top: 6px;
+}
+.bar .fill {
+  height: 100%; background: var(--accent);
+  border-radius: 3px;
+}
+.dots-nav {
+  position: fixed; bottom: 20px;
+  left: 50%; transform: translateX(-50%);
+  display: flex; gap: 6px; z-index: 50;
+}
+.dots-nav span {
+  width: 6px; height: 6px; border-radius: 50%;
+  background: var(--border); cursor: pointer;
+  transition: background .2s, width .2s;
+}
+.dots-nav span.active {
+  background: var(--accent); width: 20px;
+  border-radius: 3px;
+}
+.center {
+  text-align: center; align-items: center;
+}
+.mono {
+  font-family: ui-monospace, "SF Mono", Consolas, monospace;
+}
+.two-col {
+  display: grid; grid-template-columns: 1fr 1fr;
+  gap: 40px; margin-top: 20px;
+}
+.arrow-flow {
+  display: flex; align-items: center;
+  gap: 14px; flex-wrap: wrap;
+  margin-top: 24px;
+}
+.arrow-flow .node {
+  padding: 14px 20px;
+  background: var(--card);
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  font-size: 15px; font-weight: 500;
+}
+.arrow-flow .arrow {
+  color: var(--muted); font-size: 20px;
+}
+@media (max-width: 720px) {
+  .slide { padding: 6vh 6vw; }
+  .grid.g2, .grid.g3, .grid.g4 {
+    grid-template-columns: 1fr;
+  }
+  .two-col { grid-template-columns: 1fr; gap: 20px; }
+  .hint { display: none; }
+}
+</style>
 </head>
 <body>
-  <p>Redirecting to <a href="./index.html">index.html</a> ...</p>
+
+<div class="progress" id="progress"></div>
+<button class="theme-toggle" onclick="toggleTheme()" title="切换主题">◐</button>
+<div class="counter" id="counter">01 / 14</div>
+<div class="hint">
+  <kbd>←</kbd><kbd>→</kbd> 翻页 · <kbd>Space</kbd> 下一页 · <kbd>Home</kbd> 首页
+</div>
+<div class="dots-nav" id="dotsNav"></div>
+
+<main class="deck" id="deck">
+
+<!-- 1 封面 -->
+<section class="slide center">
+  <div class="eyebrow">项目汇报 · 2026</div>
+  <h1>GraphRAG 群聊<br>人物关系分析</h1>
+  <p class="subtitle">基于菜园电竞俱乐部（doge-）微信群 2025 全年聊天记录<br>
+     实现实体—关系图谱构建 · 社区发现 · 交互式检索</p>
+  <div class="grid g3" style="max-width: 720px; margin: 20px auto 0;">
+    <div class="card"><div class="k">聊天记录</div><div class="v">6,696</div></div>
+    <div class="card"><div class="k">群成员</div><div class="v">210</div></div>
+    <div class="card"><div class="k">社区数</div><div class="v">8</div></div>
+  </div>
+  <p class="meta-line">按 → 或 Space 开始</p>
+</section>
+
+<!-- 2 背景 -->
+<section class="slide">
+  <div class="eyebrow">01 · 项目背景</div>
+  <h2>为什么要给聊天群建"关系图"</h2>
+  <div class="two-col">
+    <div>
+      <h3>问题</h3>
+      <p style="color: var(--muted); margin-bottom: 20px;">
+        一个 200+ 人的活跃群聊，肉眼几乎无法回答：<br>
+        · 谁跟谁互动最频繁？<br>
+        · 群里有几个小圈子？<br>
+        · 某两个人是通过谁认识的？
+      </p>
+    </div>
+    <div>
+      <h3>思路</h3>
+      <p style="color: var(--muted);">
+        用轻量级 GraphRAG 方法：<br>
+        · 从结构化聊天数据抽取实体—关系<br>
+        · Louvain 算法自动发现社区<br>
+        · 提供可视化 + 命令行检索接口<br>
+        · <b>无需大模型反复调用</b>
+      </p>
+    </div>
+  </div>
+</section>
+
+<!-- 3 核心需求 -->
+<section class="slide">
+  <div class="eyebrow">02 · 需求拆解</div>
+  <h2>7 条核心要求（源自 yaoqiu.docx）</h2>
+  <div class="grid g2">
+    <div class="card">
+      <h3>数据解析</h3>
+      <p style="color: var(--muted); font-size: 14px;">抽取昵称、发言、@提及、互相回复、私聊互动</p>
+    </div>
+    <div class="card">
+      <h3>图谱构建</h3>
+      <p style="color: var(--muted); font-size: 14px;">用户为节点、互动为边，轻量结构不依赖重型图数据库</p>
+    </div>
+    <div class="card">
+      <h3>Louvain 社区发现</h3>
+      <p style="color: var(--muted); font-size: 14px;">自动聚类，标注每社区内的高互动核心人物</p>
+    </div>
+    <div class="card">
+      <h3>交互式可视化</h3>
+      <p style="color: var(--muted); font-size: 14px;">节点大小∝发言量、边粗细∝互动、社区区分色</p>
+    </div>
+    <div class="card">
+      <h3>指标汇总</h3>
+      <p style="color: var(--muted); font-size: 14px;">发言量、最强好友、所属社区导出 CSV</p>
+    </div>
+    <div class="card">
+      <h3>轻量 GraphRAG</h3>
+      <p style="color: var(--muted); font-size: 14px;">纯结构化数据驱动，不依赖大模型</p>
+    </div>
+  </div>
+</section>
+
+<!-- 4 技术栈 -->
+<section class="slide">
+  <div class="eyebrow">03 · 技术栈</div>
+  <h2>依赖最小化的 Python 方案</h2>
+  <div style="margin-top: 30px;">
+    <span class="pill">Python 3.14</span>
+    <span class="pill">NetworkX</span>
+    <span class="pill">python-louvain</span>
+    <span class="pill">pyvis</span>
+    <span class="pill">pandas</span>
+    <span class="pill">pickle</span>
+  </div>
+  <div class="two-col" style="margin-top: 40px;">
+    <div class="card">
+      <h3>图结构与算法</h3>
+      <p style="color: var(--muted);">NetworkX 承载节点/边/权重；python-louvain 做社区发现</p>
+    </div>
+    <div class="card">
+      <h3>可视化与持久化</h3>
+      <p style="color: var(--muted);">pyvis 生成交互式 HTML；pandas 导 CSV；pickle 存图状态</p>
+    </div>
+  </div>
+</section>
+
+<!-- 5 5步流程 -->
+<section class="slide">
+  <div class="eyebrow">04 · 流水线</div>
+  <h2>5 步数据管道</h2>
+  <div class="arrow-flow">
+    <div class="node">1 · 数据清洗</div>
+    <div class="arrow">→</div>
+    <div class="node">2 · 实体索引</div>
+    <div class="arrow">→</div>
+    <div class="node">3 · 关系抽取</div>
+    <div class="arrow">→</div>
+    <div class="node">4 · Louvain</div>
+    <div class="arrow">→</div>
+    <div class="node">5 · 可视化 / CSV</div>
+  </div>
+  <div class="grid g3" style="margin-top: 40px;">
+    <div class="card">
+      <div class="k">原始条数</div>
+      <div class="v">6,696</div>
+      <div class="d">clean_chat.json</div>
+    </div>
+    <div class="card">
+      <div class="k">清洗后</div>
+      <div class="v">6,458</div>
+      <div class="d">去除系统消息</div>
+    </div>
+    <div class="card">
+      <div class="k">唯一实体</div>
+      <div class="v">205</div>
+      <div class="d">wxid ↔ 昵称双向映射</div>
+    </div>
+  </div>
+</section>
+
+<!-- 6 关系抽取 -->
+<section class="slide">
+  <div class="eyebrow">05 · 关系抽取</div>
+  <h2>四类互动 → 加权融合</h2>
+  <table>
+    <thead>
+      <tr>
+        <th>互动类型</th>
+        <th>来源</th>
+        <th class="num">单次权重</th>
+        <th class="num">总触发数</th>
+      </tr>
+    </thead>
+    <tbody>
+      <tr>
+        <td>引用回复</td>
+        <td>type 244813135921</td>
+        <td class="num">4.0</td>
+        <td class="num">246</td>
+      </tr>
+      <tr>
+        <td>@提及</td>
+        <td>正则匹配 <span class="mono">@昵称</span></td>
+        <td class="num">3.0</td>
+        <td class="num">数千</td>
+      </tr>
+      <tr>
+        <td>拍一拍</td>
+        <td>type 266287972401</td>
+        <td class="num">2.0</td>
+        <td class="num">21</td>
+      </tr>
+      <tr>
+        <td>邻近接话</td>
+        <td>30 秒内先后不同人发言</td>
+        <td class="num">1.0</td>
+        <td class="num">大量</td>
+      </tr>
+    </tbody>
+  </table>
+  <p style="margin-top: 24px; color: var(--muted); font-size: 14px;">
+    边权重 = @×3 + 引用×4 + 拍×2 + 邻近×1，写入无向图 <span class="mono">G</span>
+  </p>
+</section>
+
+<!-- 7 图规模 -->
+<section class="slide">
+  <div class="eyebrow">06 · 图谱规模</div>
+  <h2>过滤后的活跃社交图</h2>
+  <div class="grid g4">
+    <div class="card">
+      <div class="k">图节点</div>
+      <div class="v">125</div>
+      <div class="d">发言 ≥ 3 的活跃用户</div>
+    </div>
+    <div class="card">
+      <div class="k">图边</div>
+      <div class="v">554</div>
+      <div class="d">存在过互动的对</div>
+    </div>
+    <div class="card">
+      <div class="k">社区数</div>
+      <div class="v">8</div>
+      <div class="d">Louvain 自动划分</div>
+    </div>
+    <div class="card">
+      <div class="k">最强单边</div>
+      <div class="v">137</div>
+      <div class="d">TWELVE ↔ 行心.</div>
+    </div>
+  </div>
+  <p style="margin-top: 24px; color: var(--muted); font-size: 14px;">
+    孤立节点 6 个已丢弃；边权范围 1 – 137
+  </p>
+</section>
+
+<!-- 8 社区结果 -->
+<section class="slide">
+  <div class="eyebrow">07 · 社区发现结果</div>
+  <h2>Louvain 划分出的 8 个社区</h2>
+  <table>
+    <thead>
+      <tr><th>社区</th><th>人数</th><th>核心人物</th><th>规模</th></tr>
+    </thead>
+    <tbody>
+      <tr><td>#4</td><td class="num">41</td><td>泛泛之辈。</td>
+        <td><div class="bar"><div class="fill" style="width: 100%"></div></div></td></tr>
+      <tr><td>#3</td><td class="num">33</td><td>行心.</td>
+        <td><div class="bar"><div class="fill" style="width: 80%"></div></div></td></tr>
+      <tr><td>#6</td><td class="num">14</td><td>落时烟〔大知闲闲〕</td>
+        <td><div class="bar"><div class="fill" style="width: 34%"></div></div></td></tr>
+      <tr><td>#2</td><td class="num">14</td><td>陈熠</td>
+        <td><div class="bar"><div class="fill" style="width: 34%"></div></div></td></tr>
+      <tr><td>#5</td><td class="num">13</td><td>期d</td>
+        <td><div class="bar"><div class="fill" style="width: 32%"></div></div></td></tr>
+      <tr><td>#1</td><td class="num">6</td><td>him.</td>
+        <td><div class="bar"><div class="fill" style="width: 15%"></div></div></td></tr>
+      <tr><td>#0</td><td class="num">4</td><td>海</td>
+        <td><div class="bar"><div class="fill" style="width: 10%"></div></div></td></tr>
+    </tbody>
+  </table>
+</section>
+
+<!-- 9 强关系 Top -->
+<section class="slide">
+  <div class="eyebrow">08 · 头部强关系</div>
+  <h2>群里"最铁" Top 5</h2>
+  <table>
+    <thead>
+      <tr>
+        <th>#</th><th>关系</th>
+        <th class="num">总权重</th>
+        <th class="num">@</th>
+        <th class="num">引用</th>
+        <th class="num">拍</th>
+        <th class="num">接话</th>
+      </tr>
+    </thead>
+    <tbody>
+      <tr><td>1</td><td>TWELVE ↔ 行心.</td>
+        <td class="num"><b>137</b></td><td class="num">7</td><td class="num">9</td>
+        <td class="num">1</td><td class="num">78</td></tr>
+      <tr><td>2</td><td>我嘞格温 ↔ 行心.</td>
+        <td class="num"><b>108</b></td><td class="num">1</td><td class="num">5</td>
+        <td class="num">1</td><td class="num">83</td></tr>
+      <tr><td>3</td><td>泛泛之辈。 ↔ 行心.</td>
+        <td class="num"><b>83</b></td><td class="num">3</td><td class="num">6</td>
+        <td class="num">0</td><td class="num">50</td></tr>
+      <tr><td>4</td><td>TWELVE ↔ 王小逗</td>
+        <td class="num"><b>59</b></td><td class="num">2</td><td class="num">4</td>
+        <td class="num">0</td><td class="num">37</td></tr>
+      <tr><td>5</td><td>我嘞格温 ↔ 王小逗</td>
+        <td class="num"><b>54</b></td><td class="num">1</td><td class="num">4</td>
+        <td class="num">0</td><td class="num">35</td></tr>
+    </tbody>
+  </table>
+  <p style="margin-top: 20px; color: var(--muted); font-size: 14px;">
+    可见「行心.」是全群社交枢纽；邻近接话是绑定关系最主要的信号源
+  </p>
+</section>
+
+<!-- 10 可视化产物 -->
+<section class="slide">
+  <div class="eyebrow">09 · 可视化产物</div>
+  <h2>三张交互式 HTML 图谱</h2>
+  <div class="grid g3">
+    <div class="card">
+      <h3>chat_network.html</h3>
+      <p style="color: var(--muted); font-size: 14px; margin-top: 8px;">
+        简洁版全图<br>
+        · 节点大小 ∝ 发言量<br>
+        · 边粗细 ∝ 互动权重<br>
+        · 悬浮显示互动明细
+      </p>
+    </div>
+    <div class="card">
+      <h3>graph_visualization.html</h3>
+      <p style="color: var(--muted); font-size: 14px; margin-top: 8px;">
+        主干版（554 → 370 边）<br>
+        · 智能过滤弱边<br>
+        · 社区高亮 · 核心加星<br>
+        · 右上角人名下拉搜索
+      </p>
+    </div>
+    <div class="card">
+      <h3>graph_by_community/*</h3>
+      <p style="color: var(--muted); font-size: 14px; margin-top: 8px;">
+        8 张社区详图<br>
+        · 每社区单独一张<br>
+        · 内部边全显<br>
+        · 更紧凑布局
+      </p>
+    </div>
+  </div>
+</section>
+
+<!-- 11 GraphRAG 检索器 -->
+<section class="slide">
+  <div class="eyebrow">10 · 核心亮点</div>
+  <h2>GraphRAG 检索器 · 三种召回模式</h2>
+  <div class="step">
+    <div class="n">P</div>
+    <div class="body">
+      <h3>person &lt;昵称&gt; · 实体检索</h3>
+      <p>输入人名 → 返回其发言量、@/引用统计、Top-K 强关系、所属社区其他成员</p>
+    </div>
+  </div>
+  <div class="step">
+    <div class="n">→</div>
+    <div class="body">
+      <h3>path &lt;A&gt; &lt;B&gt; · 多跳桥梁</h3>
+      <p>用 <span class="mono">1/weight</span> 作距离跑 K-最短路径，找两人之间的社交桥梁</p>
+    </div>
+  </div>
+  <div class="step">
+    <div class="n">C</div>
+    <div class="body">
+      <h3>community &lt;id&gt; · 社区摘要</h3>
+      <p>成员按加权度排名、互动方式分布、Top5 内部强边、模板化文字摘要</p>
+    </div>
+  </div>
+  <p style="margin-top: 30px; color: var(--muted); font-size: 14px;">
+    附加：<span class="mono">list</span> 列社区、模糊昵称匹配（实体链接）、CLI + REPL 双模
+  </p>
+</section>
+
+<!-- 12 检索示例 -->
+<section class="slide">
+  <div class="eyebrow">11 · 真实召回示例</div>
+  <h2>path 行心. → 期d</h2>
+<pre><span class="c">$ python graphrag_retriever.py path 行心. 期d</span>
+
+<span class="k">路径 1</span>   跳数=1   最弱一跳=36.0   累计权重=36.0
+    行心.  —[36.0 | @0 引3 拍1 接22]→ 期d
+
+<span class="k">路径 2</span>   跳数=2   最弱一跳=18.0   累计权重=155.0
+    行心.  —[137.0 | @7 引9 拍1 接78]→ TWELVE
+    TWELVE —[18.0  | @0 引2 拍0 接10]→ 期d
+
+<span class="k">路径 3</span>   跳数=3   最弱一跳=18.0   累计权重=164.0
+    行心.  —[108.0 | @1 引5 拍1 接83]→ 我嘞格温
+    我嘞格温 —[38.0  | @0 引3 拍0 接26]→ TWELVE
+    TWELVE —[18.0  | @0 引2 拍0 接10]→ 期d</pre>
+  <p style="margin-top: 20px; color: var(--muted); font-size: 14px;">
+    输出块可直接喂给 LLM 做二次问答，即完成 GraphRAG 闭环
+  </p>
+</section>
+
+<!-- 13 项目文件 -->
+<section class="slide">
+  <div class="eyebrow">12 · 交付物</div>
+  <h2>项目文件清单</h2>
+  <div class="two-col">
+    <div>
+      <h3 style="color: var(--accent);">代码</h3>
+      <ul>
+        <li><span class="mono">graphrag_analysis.py</span> — 构图 + 社区 + 可视化</li>
+        <li><span class="mono">graphrag_retriever.py</span> — 三种召回 + REPL</li>
+      </ul>
+      <h3 style="color: var(--accent); margin-top: 24px;">状态 / 数据</h3>
+      <ul>
+        <li><span class="mono">graph_state.pkl</span> — 图状态快照</li>
+        <li><span class="mono">clean_chat.json</span> — 原始聊天记录</li>
+      </ul>
+    </div>
+    <div>
+      <h3 style="color: var(--accent);">HTML 可视化</h3>
+      <ul>
+        <li><span class="mono">chat_network.html</span></li>
+        <li><span class="mono">graph_visualization.html</span></li>
+        <li><span class="mono">graph_by_community/*.html</span></li>
+      </ul>
+      <h3 style="color: var(--accent); margin-top: 24px;">CSV 报表</h3>
+      <ul>
+        <li><span class="mono">node_stats.csv</span></li>
+        <li><span class="mono">edge_weights.csv</span></li>
+        <li><span class="mono">community_result.csv</span></li>
+      </ul>
+    </div>
+  </div>
+</section>
+
+<!-- 14 使用方式 -->
+<section class="slide center">
+  <div class="eyebrow">13 · 使用方式</div>
+  <h2>3 步启动</h2>
+  <div style="max-width: 720px; margin: 20px auto 0; text-align: left;">
+    <div class="step">
+      <div class="n">1</div>
+      <div class="body">
+        <h3>安装依赖</h3>
+        <p class="mono" style="color: var(--muted);">pip install networkx python-louvain pyvis pandas</p>
+      </div>
+    </div>
+    <div class="step">
+      <div class="n">2</div>
+      <div class="body">
+        <h3>跑分析（生成所有产物）</h3>
+        <p class="mono" style="color: var(--muted);">python graphrag_analysis.py</p>
+      </div>
+    </div>
+    <div class="step">
+      <div class="n">3</div>
+      <div class="body">
+        <h3>启动检索器</h3>
+        <p class="mono" style="color: var(--muted);">python graphrag_retriever.py</p>
+      </div>
+    </div>
+  </div>
+  <p class="meta-line">Thanks · End of Deck</p>
+</section>
+
+</main>
+
+<script>
+const slides = document.querySelectorAll('.slide');
+const total = slides.length;
+const counter = document.getElementById('counter');
+const progress = document.getElementById('progress');
+const dotsNav = document.getElementById('dotsNav');
+let current = 0;
+
+// Build dots
+slides.forEach((_, i) => {
+  const dot = document.createElement('span');
+  dot.onclick = () => goTo(i);
+  dotsNav.appendChild(dot);
+});
+
+function update() {
+  slides.forEach((s, i) => {
+    s.classList.remove('active', 'prev');
+    if (i === current) s.classList.add('active');
+    else if (i < current) s.classList.add('prev');
+  });
+  dotsNav.querySelectorAll('span').forEach((d, i) => {
+    d.classList.toggle('active', i === current);
+  });
+  counter.textContent = String(current + 1).padStart(2, '0')
+                      + ' / ' + String(total).padStart(2, '0');
+  progress.style.width = ((current + 1) / total * 100) + '%';
+  location.hash = current + 1;
+}
+
+function goTo(i) {
+  current = Math.max(0, Math.min(total - 1, i));
+  update();
+}
+function next() { goTo(current + 1); }
+function prev() { goTo(current - 1); }
+
+document.addEventListener('keydown', e => {
+  if (['ArrowRight', ' ', 'PageDown'].includes(e.key)) { e.preventDefault(); next(); }
+  else if (['ArrowLeft', 'PageUp'].includes(e.key))    { e.preventDefault(); prev(); }
+  else if (e.key === 'Home')                            { e.preventDefault(); goTo(0); }
+  else if (e.key === 'End')                             { e.preventDefault(); goTo(total - 1); }
+});
+
+// Touch swipe
+let touchStartX = 0;
+document.addEventListener('touchstart', e => { touchStartX = e.touches[0].clientX; }, { passive: true });
+document.addEventListener('touchend', e => {
+  const dx = e.changedTouches[0].clientX - touchStartX;
+  if (Math.abs(dx) > 50) dx < 0 ? next() : prev();
+}, { passive: true });
+
+// Click on empty area advances
+document.getElementById('deck').addEventListener('click', e => {
+  if (e.target.closest('a, button, pre, .dots-nav, .theme-toggle')) return;
+  next();
+});
+
+// Deep-link via #n
+const initial = parseInt(location.hash.slice(1)) - 1;
+if (!isNaN(initial) && initial >= 0 && initial < total) current = initial;
+
+// Theme
+function toggleTheme() {
+  const cur = document.documentElement.getAttribute('data-theme');
+  const next = cur === 'dark' ? 'light' : 'dark';
+  document.documentElement.setAttribute('data-theme', next);
+  localStorage.setItem('theme', next);
+}
+const saved = localStorage.getItem('theme');
+if (saved) document.documentElement.setAttribute('data-theme', saved);
+
+update();
+</script>
 </body>
 </html>

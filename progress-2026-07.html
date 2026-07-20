@@ -1,0 +1,289 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>GraphRAG 进度汇报</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Noto+Sans+SC:wght@400;500;700;800&family=JetBrains+Mono:wght@400;600&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="styles.css">
+</head>
+<body>
+  <div class="deck-shell">
+    <aside class="rail">
+      <div class="rail__brand">
+        <div class="rail__eyebrow">Progress Report</div>
+        <h1>GraphRAG</h1>
+        <p>代码理解、工具调研与待解问题</p>
+      </div>
+      <div class="rail__meta">
+        <span>2026-07-20</span>
+        <span>网页版汇报 PPT</span>
+      </div>
+      <div class="rail__controls">
+        <button id="prevBtn" type="button">上一页</button>
+        <button id="nextBtn" type="button">下一页</button>
+      </div>
+      <div class="rail__hint">键盘方向键 / 空格 / 触屏滑动均可翻页</div>
+    </aside>
+
+    <main class="slides" id="slides">
+      <section class="slide is-active" data-title="封面">
+        <div class="slide__content">
+          <div class="kicker">阶段性汇报</div>
+          <h2>GraphRAG 群聊关系分析项目进度</h2>
+          <p class="lead">当前已完成代码主流程理解，重点锁定 <code>node</code> 与 <code>edges</code> 属性来源；工具侧已掌握使用 DeepWiki 阅读 GitHub 项目方法。</p>
+          <div class="hero-grid">
+            <article class="metric-card">
+              <span class="metric-card__label">代码理解</span>
+              <strong>前 275 行</strong>
+              <p>已覆盖数据加载、用户索引、交互抽取、建图入口。</p>
+            </article>
+            <article class="metric-card">
+              <span class="metric-card__label">汇报重点</span>
+              <strong>Nodes / Edges</strong>
+              <p>明确图节点与图边属性如何从聊天记录推导出来。</p>
+            </article>
+            <article class="metric-card">
+              <span class="metric-card__label">待补齐</span>
+              <strong>Token 节省工具</strong>
+              <p>第三方中转方案还未找到可靠候选。</p>
+            </article>
+          </div>
+        </div>
+      </section>
+
+      <section class="slide" data-title="整体进度">
+        <div class="slide__content">
+          <div class="kicker">01</div>
+          <h2>目前进度概览</h2>
+          <div class="two-col">
+            <div>
+              <h3>已完成</h3>
+              <ul class="clean-list">
+                <li>大致理解 <code>graphrag_analysis.py</code> 前 275 行主流程。</li>
+                <li>确认图构建前的核心数据结构是 <code>node</code> 和 <code>edges</code>。</li>
+                <li>知道如何使用 DeepWiki 读取并梳理 GitHub 项目内容。</li>
+              </ul>
+            </div>
+            <div>
+              <h3>未完成</h3>
+              <ul class="clean-list">
+                <li>还未找到稳定、低风险、能显著节省 token 的第三方中转工具。</li>
+                <li>对代码后半段展示层与导出逻辑尚未展开细讲。</li>
+              </ul>
+            </div>
+          </div>
+          <div class="progress-strip">
+            <div class="progress-strip__item"><span>代码理解</span><strong>70%</strong></div>
+            <div class="progress-strip__item"><span>汇报准备</span><strong>80%</strong></div>
+            <div class="progress-strip__item"><span>工具调研</span><strong>45%</strong></div>
+          </div>
+        </div>
+      </section>
+
+      <section class="slide" data-title="代码主流程">
+        <div class="slide__content">
+          <div class="kicker">02</div>
+          <h2>前 275 行代码主流程</h2>
+          <div class="timeline">
+            <article>
+              <span>Step 1</span>
+              <h3>load_messages()</h3>
+              <p>读取 <code>clean_chat.json</code>，去掉系统消息，保留有效聊天记录。</p>
+            </article>
+            <article>
+              <span>Step 2</span>
+              <h3>build_user_index()</h3>
+              <p>建立 <code>wxid ↔ display_name</code> 映射，为后续解析 <code>@某人</code> 做准备。</p>
+            </article>
+            <article>
+              <span>Step 3</span>
+              <h3>extract_interactions()</h3>
+              <p>从消息中抽取 mention、quote、pat、adjacent 四类关系，同时累计节点统计。</p>
+            </article>
+            <article>
+              <span>Step 4</span>
+              <h3>build_graph()</h3>
+              <p>筛选活跃用户后，将节点和边写入 NetworkX 图，再执行 Louvain 社区发现。</p>
+            </article>
+          </div>
+        </div>
+      </section>
+
+      <section class="slide" data-title="Node 来源">
+        <div class="slide__content">
+          <div class="kicker">03</div>
+          <h2><code>node</code> 属性来源</h2>
+          <div class="two-col">
+            <div class="code-panel">
+              <div class="code-panel__title">初始化结构</div>
+              <pre><code>node = defaultdict(lambda: dict(
+  msg=0,
+  mention_out=0,
+  mention_in=0,
+  quote_out=0,
+  quote_in=0
+))</code></pre>
+            </div>
+            <div>
+              <h3>来源解释</h3>
+              <ul class="clean-list">
+                <li><code>msg</code>：每遍历到一条该用户发送的消息就加 1。</li>
+                <li><code>mention_out</code>：该用户在文本里 <code>@</code> 别人的次数。</li>
+                <li><code>mention_in</code>：别人 <code>@</code> 到该用户的次数。</li>
+                <li><code>quote_out</code>：该用户发送“引用消息”的次数。</li>
+                <li><code>quote_in</code>：该用户被别人引用回复的次数。</li>
+              </ul>
+            </div>
+          </div>
+          <div class="note-box">结论：<code>node</code> 不是外部输入字段，而是从消息遍历过程中动态累计出来的“用户画像统计”。</div>
+        </div>
+      </section>
+
+      <section class="slide" data-title="Edges 来源">
+        <div class="slide__content">
+          <div class="kicker">04</div>
+          <h2><code>edges</code> 属性来源</h2>
+          <div class="cards four">
+            <article class="fact-card">
+              <h3>@ 提及</h3>
+              <p>文本或引用消息中出现 <code>@昵称</code>，通过 <code>name2id</code> 映射到目标用户。</p>
+            </article>
+            <article class="fact-card">
+              <h3>引用回复</h3>
+              <p>引用消息没有直接携带被引用者时，退化为“回复给最近一位非自己发言的人”。</p>
+            </article>
+            <article class="fact-card">
+              <h3>拍一拍</h3>
+              <p>从消息内容中用正则抽出两个 ID，作为一次 pat 关系。</p>
+            </article>
+            <article class="fact-card">
+              <h3>邻近接话</h3>
+              <p>若与上一条不同发送者的消息时间差不超过 30 秒，则记一次 adjacent。</p>
+            </article>
+          </div>
+          <div class="code-panel compact">
+            <div class="code-panel__title">边权重合成</div>
+            <pre><code>total =
+  mention * 3.0 +
+  quote   * 4.0 +
+  pat     * 2.0 +
+  adjacent* 1.0</code></pre>
+          </div>
+          <div class="note-box">结论：<code>edges</code> 是“多种互动证据”的汇总结果，最终以 <code>total</code> 作为建图权重。</div>
+        </div>
+      </section>
+
+      <section class="slide" data-title="图中节点和边">
+        <div class="slide__content">
+          <div class="kicker">05</div>
+          <h2>进入图结构时，节点和边各带什么信息</h2>
+          <div class="two-col">
+            <div class="schema-card">
+              <h3>Node 写入 Graph</h3>
+              <pre><code>G.add_node(uid,
+  label=id2name.get(uid, uid),
+  msg_count=node_stats[uid]["msg"]
+)</code></pre>
+              <p>只保留发言数 <code>&gt;= MIN_MESSAGES</code> 的活跃用户。</p>
+            </div>
+            <div class="schema-card">
+              <h3>Edge 写入 Graph</h3>
+              <pre><code>G.add_edge(a, b,
+  weight=d["total"],
+  mention=d["mention"],
+  quote=d["quote"],
+  pat=d["pat"],
+  adjacent=d["adjacent"],
+  total=d["total"]
+)</code></pre>
+              <p>只保留双方都活跃且总权重大于 0 的关系。</p>
+            </div>
+          </div>
+          <div class="note-box">图不是直接读取 JSON 成品，而是先抽统计，再筛活跃用户，再写入图结构。</div>
+        </div>
+      </section>
+
+      <section class="slide" data-title="DeepWiki">
+        <div class="slide__content">
+          <div class="kicker">06</div>
+          <h2>已掌握：使用 DeepWiki 阅读 GitHub 项目</h2>
+          <div class="two-col">
+            <div>
+              <h3>用途</h3>
+              <ul class="clean-list">
+                <li>快速浏览仓库结构与模块关系。</li>
+                <li>辅助定位入口文件、数据流和依赖关系。</li>
+                <li>适合在正式读源码前做全局扫图。</li>
+              </ul>
+            </div>
+            <div>
+              <h3>汇报可讲的价值</h3>
+              <ul class="clean-list">
+                <li>提升理解陌生仓库的起步速度。</li>
+                <li>减少盲目逐文件阅读的成本。</li>
+                <li>便于先形成“项目地图”，再回到关键函数深挖。</li>
+              </ul>
+            </div>
+          </div>
+          <div class="note-box">一句话总结：DeepWiki 更像“项目导航层”，帮助先建立整体认知，再进入代码细节。</div>
+        </div>
+      </section>
+
+      <section class="slide" data-title="问题与风险">
+        <div class="slide__content">
+          <div class="kicker">07</div>
+          <h2>当前未解决问题</h2>
+          <div class="spotlight">
+            <h3>尚未找到节省 token 的第三方中转工具</h3>
+            <p>目前没有确认到既稳定、合规，又能明显降低成本的可用方案。因此这部分仍处于调研状态，不建议在汇报中给出确定性结论。</p>
+          </div>
+          <div class="cards three">
+            <article class="fact-card">
+              <h3>风险</h3>
+              <p>第三方中转存在稳定性、隐私、账号风控与可持续性问题。</p>
+            </article>
+            <article class="fact-card">
+              <h3>汇报建议</h3>
+              <p>表述为“已识别需求，但暂未确认可靠工具”。</p>
+            </article>
+            <article class="fact-card">
+              <h3>后续方向</h3>
+              <p>优先评估提示压缩、分阶段调用、缓存与检索剪枝等原生节省策略。</p>
+            </article>
+          </div>
+        </div>
+      </section>
+
+      <section class="slide" data-title="下一步">
+        <div class="slide__content">
+          <div class="kicker">08</div>
+          <h2>下一步计划</h2>
+          <div class="timeline next">
+            <article>
+              <span>A</span>
+              <h3>补全后半段代码理解</h3>
+              <p>继续梳理可视化过滤、导出报表和 HTML 渲染逻辑。</p>
+            </article>
+            <article>
+              <span>B</span>
+              <h3>固化汇报口径</h3>
+              <p>把 node/edges 来源整理成 2 分钟内可讲清的口头版本。</p>
+            </article>
+            <article>
+              <span>C</span>
+              <h3>继续调研降 token 方案</h3>
+              <p>若第三方方案不可靠，则转向 prompt 压缩与缓存策略。</p>
+            </article>
+          </div>
+        </div>
+      </section>
+    </main>
+  </div>
+
+  <div class="pager" id="pager"></div>
+  <script src="script.js"></script>
+</body>
+</html>

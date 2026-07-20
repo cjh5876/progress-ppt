@@ -1,289 +1,793 @@
 <!DOCTYPE html>
 <html lang="zh-CN">
 <head>
-  <meta charset="UTF-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>GraphRAG 进度汇报</title>
-  <link rel="preconnect" href="https://fonts.googleapis.com">
-  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-  <link href="https://fonts.googleapis.com/css2?family=Noto+Sans+SC:wght@400;500;700;800&family=JetBrains+Mono:wght@400;600&display=swap" rel="stylesheet">
-  <link rel="stylesheet" href="styles.css">
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>GraphRAG 群聊人物关系分析 · 项目汇报</title>
+<style>
+:root {
+  --bg: #fafafa;
+  --fg: #1a1a1a;
+  --muted: #64748b;
+  --accent: #2563eb;
+  --accent-soft: #dbeafe;
+  --card: #ffffff;
+  --border: #e5e7eb;
+  --code-bg: #0f172a;
+  --code-fg: #e2e8f0;
+}
+[data-theme="dark"] {
+  --bg: #0f1115;
+  --fg: #f1f5f9;
+  --muted: #94a3b8;
+  --accent: #60a5fa;
+  --accent-soft: #1e293b;
+  --card: #171923;
+  --border: #262a36;
+  --code-bg: #05070c;
+  --code-fg: #e2e8f0;
+}
+* { box-sizing: border-box; margin: 0; padding: 0; }
+html, body {
+  height: 100%;
+  font-family: -apple-system, BlinkMacSystemFont, "PingFang SC",
+               "Microsoft YaHei", "Segoe UI", Roboto, sans-serif;
+  background: var(--bg);
+  color: var(--fg);
+  overflow: hidden;
+  transition: background .3s, color .3s;
+}
+.progress {
+  position: fixed; top: 0; left: 0; height: 3px;
+  background: var(--accent);
+  width: 0%; z-index: 100;
+  transition: width .35s cubic-bezier(.4,0,.2,1);
+}
+.counter {
+  position: fixed; right: 20px; bottom: 20px;
+  color: var(--muted); font-size: 13px;
+  font-variant-numeric: tabular-nums;
+  z-index: 50; user-select: none;
+}
+.hint {
+  position: fixed; left: 20px; bottom: 20px;
+  color: var(--muted); font-size: 12px;
+  z-index: 50; user-select: none;
+}
+.hint kbd {
+  padding: 2px 6px; border: 1px solid var(--border);
+  border-radius: 3px; background: var(--card);
+  font-family: ui-monospace, Consolas, monospace;
+  font-size: 11px; margin: 0 2px;
+}
+.theme-toggle {
+  position: fixed; right: 20px; top: 20px;
+  width: 32px; height: 32px; border-radius: 50%;
+  border: 1px solid var(--border);
+  background: var(--card); color: var(--fg);
+  cursor: pointer; font-size: 14px;
+  z-index: 50;
+  display: flex; align-items: center; justify-content: center;
+}
+.deck {
+  height: 100vh; width: 100vw;
+  position: relative;
+  overflow: hidden;
+}
+.slide {
+  position: absolute; inset: 0;
+  padding: 8vh 10vw;
+  display: flex; flex-direction: column;
+  justify-content: center;
+  opacity: 0;
+  transform: translateX(30px);
+  transition: opacity .4s ease, transform .4s ease;
+  pointer-events: none;
+  overflow-y: auto;
+}
+.slide.active {
+  opacity: 1; transform: translateX(0);
+  pointer-events: auto;
+}
+.slide.prev {
+  transform: translateX(-30px);
+}
+.eyebrow {
+  color: var(--accent); font-size: 13px;
+  letter-spacing: 3px; text-transform: uppercase;
+  margin-bottom: 14px; font-weight: 600;
+}
+h1 {
+  font-size: clamp(32px, 5vw, 60px);
+  font-weight: 700; line-height: 1.15;
+  margin-bottom: 20px; letter-spacing: -0.02em;
+}
+h2 {
+  font-size: clamp(24px, 3.4vw, 40px);
+  font-weight: 700; line-height: 1.2;
+  margin-bottom: 24px; letter-spacing: -0.01em;
+}
+h3 {
+  font-size: clamp(16px, 1.6vw, 20px);
+  font-weight: 600; margin-bottom: 8px;
+}
+p, li {
+  font-size: clamp(15px, 1.4vw, 18px);
+  line-height: 1.7; color: var(--fg);
+}
+.subtitle {
+  font-size: clamp(16px, 1.6vw, 22px);
+  color: var(--muted); margin-bottom: 40px;
+  line-height: 1.5;
+}
+.meta-line {
+  color: var(--muted); font-size: 14px;
+  margin-top: 40px; letter-spacing: 1px;
+}
+ul { list-style: none; }
+li {
+  padding: 10px 0; padding-left: 22px;
+  position: relative;
+}
+li::before {
+  content: ""; position: absolute;
+  left: 0; top: 20px;
+  width: 6px; height: 6px; border-radius: 50%;
+  background: var(--accent);
+}
+.grid {
+  display: grid; gap: 16px;
+  margin-top: 20px;
+}
+.grid.g2 { grid-template-columns: 1fr 1fr; }
+.grid.g3 { grid-template-columns: repeat(3, 1fr); }
+.grid.g4 { grid-template-columns: repeat(4, 1fr); }
+.card {
+  background: var(--card);
+  border: 1px solid var(--border);
+  border-radius: 10px;
+  padding: 20px 22px;
+}
+.card .k {
+  font-size: 12px; color: var(--muted);
+  letter-spacing: 1px; text-transform: uppercase;
+}
+.card .v {
+  font-size: clamp(28px, 3.6vw, 42px);
+  font-weight: 700; margin-top: 6px;
+  color: var(--fg); letter-spacing: -0.02em;
+  font-variant-numeric: tabular-nums;
+}
+.card .d {
+  font-size: 13px; color: var(--muted);
+  margin-top: 6px;
+}
+.pill {
+  display: inline-block;
+  padding: 4px 10px; margin: 0 4px 6px 0;
+  background: var(--accent-soft);
+  color: var(--accent);
+  border-radius: 999px; font-size: 13px;
+  font-weight: 500;
+}
+[data-theme="dark"] .pill { color: var(--fg); }
+.step {
+  display: flex; align-items: flex-start;
+  gap: 16px; padding: 14px 0;
+  border-bottom: 1px solid var(--border);
+}
+.step:last-child { border-bottom: none; }
+.step .n {
+  min-width: 32px; height: 32px;
+  border-radius: 50%;
+  background: var(--accent);
+  color: white; font-weight: 700;
+  display: flex; align-items: center; justify-content: center;
+  font-size: 14px;
+}
+.step .body { flex: 1; }
+.step .body h3 { margin-bottom: 4px; }
+.step .body p { font-size: 15px; color: var(--muted); }
+pre {
+  background: var(--code-bg);
+  color: var(--code-fg);
+  padding: 18px 22px;
+  border-radius: 8px;
+  font-family: ui-monospace, "SF Mono", Consolas, monospace;
+  font-size: clamp(11px, 1.05vw, 14px);
+  line-height: 1.55;
+  overflow-x: auto;
+  margin-top: 16px;
+}
+pre .c { color: #64748b; }
+pre .k { color: #f472b6; }
+pre .s { color: #86efac; }
+pre .n { color: #fbbf24; }
+table {
+  width: 100%; border-collapse: collapse;
+  margin-top: 16px; font-size: 15px;
+}
+th, td {
+  padding: 10px 14px; text-align: left;
+  border-bottom: 1px solid var(--border);
+}
+th {
+  color: var(--muted); font-weight: 600;
+  font-size: 13px; text-transform: uppercase;
+  letter-spacing: 1px;
+}
+td.num {
+  text-align: right;
+  font-variant-numeric: tabular-nums;
+}
+.bar {
+  height: 6px; background: var(--border);
+  border-radius: 3px; overflow: hidden;
+  margin-top: 6px;
+}
+.bar .fill {
+  height: 100%; background: var(--accent);
+  border-radius: 3px;
+}
+.dots-nav {
+  position: fixed; bottom: 20px;
+  left: 50%; transform: translateX(-50%);
+  display: flex; gap: 6px; z-index: 50;
+}
+.dots-nav span {
+  width: 6px; height: 6px; border-radius: 50%;
+  background: var(--border); cursor: pointer;
+  transition: background .2s, width .2s;
+}
+.dots-nav span.active {
+  background: var(--accent); width: 20px;
+  border-radius: 3px;
+}
+.center {
+  text-align: center; align-items: center;
+}
+.mono {
+  font-family: ui-monospace, "SF Mono", Consolas, monospace;
+}
+.two-col {
+  display: grid; grid-template-columns: 1fr 1fr;
+  gap: 40px; margin-top: 20px;
+}
+.arrow-flow {
+  display: flex; align-items: center;
+  gap: 14px; flex-wrap: wrap;
+  margin-top: 24px;
+}
+.arrow-flow .node {
+  padding: 14px 20px;
+  background: var(--card);
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  font-size: 15px; font-weight: 500;
+}
+.arrow-flow .arrow {
+  color: var(--muted); font-size: 20px;
+}
+@media (max-width: 720px) {
+  .slide { padding: 6vh 6vw; }
+  .grid.g2, .grid.g3, .grid.g4 {
+    grid-template-columns: 1fr;
+  }
+  .two-col { grid-template-columns: 1fr; gap: 20px; }
+  .hint { display: none; }
+}
+</style>
 </head>
 <body>
-  <div class="deck-shell">
-    <aside class="rail">
-      <div class="rail__brand">
-        <div class="rail__eyebrow">Progress Report</div>
-        <h1>GraphRAG</h1>
-        <p>代码理解、工具调研与待解问题</p>
-      </div>
-      <div class="rail__meta">
-        <span>2026-07-20</span>
-        <span>网页版汇报 PPT</span>
-      </div>
-      <div class="rail__controls">
-        <button id="prevBtn" type="button">上一页</button>
-        <button id="nextBtn" type="button">下一页</button>
-      </div>
-      <div class="rail__hint">键盘方向键 / 空格 / 触屏滑动均可翻页</div>
-    </aside>
 
-    <main class="slides" id="slides">
-      <section class="slide is-active" data-title="封面">
-        <div class="slide__content">
-          <div class="kicker">阶段性汇报</div>
-          <h2>GraphRAG 群聊关系分析项目进度</h2>
-          <p class="lead">当前已完成代码主流程理解，重点锁定 <code>node</code> 与 <code>edges</code> 属性来源；工具侧已掌握使用 DeepWiki 阅读 GitHub 项目方法。</p>
-          <div class="hero-grid">
-            <article class="metric-card">
-              <span class="metric-card__label">代码理解</span>
-              <strong>前 275 行</strong>
-              <p>已覆盖数据加载、用户索引、交互抽取、建图入口。</p>
-            </article>
-            <article class="metric-card">
-              <span class="metric-card__label">汇报重点</span>
-              <strong>Nodes / Edges</strong>
-              <p>明确图节点与图边属性如何从聊天记录推导出来。</p>
-            </article>
-            <article class="metric-card">
-              <span class="metric-card__label">待补齐</span>
-              <strong>Token 节省工具</strong>
-              <p>第三方中转方案还未找到可靠候选。</p>
-            </article>
-          </div>
-        </div>
-      </section>
+<div class="progress" id="progress"></div>
+<button class="theme-toggle" onclick="toggleTheme()" title="切换主题">◐</button>
+<div class="counter" id="counter">01 / 14</div>
+<div class="hint">
+  <kbd>←</kbd><kbd>→</kbd> 翻页 · <kbd>Space</kbd> 下一页 · <kbd>Home</kbd> 首页
+</div>
+<div class="dots-nav" id="dotsNav"></div>
 
-      <section class="slide" data-title="整体进度">
-        <div class="slide__content">
-          <div class="kicker">01</div>
-          <h2>目前进度概览</h2>
-          <div class="two-col">
-            <div>
-              <h3>已完成</h3>
-              <ul class="clean-list">
-                <li>大致理解 <code>graphrag_analysis.py</code> 前 275 行主流程。</li>
-                <li>确认图构建前的核心数据结构是 <code>node</code> 和 <code>edges</code>。</li>
-                <li>知道如何使用 DeepWiki 读取并梳理 GitHub 项目内容。</li>
-              </ul>
-            </div>
-            <div>
-              <h3>未完成</h3>
-              <ul class="clean-list">
-                <li>还未找到稳定、低风险、能显著节省 token 的第三方中转工具。</li>
-                <li>对代码后半段展示层与导出逻辑尚未展开细讲。</li>
-              </ul>
-            </div>
-          </div>
-          <div class="progress-strip">
-            <div class="progress-strip__item"><span>代码理解</span><strong>70%</strong></div>
-            <div class="progress-strip__item"><span>汇报准备</span><strong>80%</strong></div>
-            <div class="progress-strip__item"><span>工具调研</span><strong>45%</strong></div>
-          </div>
-        </div>
-      </section>
+<main class="deck" id="deck">
 
-      <section class="slide" data-title="代码主流程">
-        <div class="slide__content">
-          <div class="kicker">02</div>
-          <h2>前 275 行代码主流程</h2>
-          <div class="timeline">
-            <article>
-              <span>Step 1</span>
-              <h3>load_messages()</h3>
-              <p>读取 <code>clean_chat.json</code>，去掉系统消息，保留有效聊天记录。</p>
-            </article>
-            <article>
-              <span>Step 2</span>
-              <h3>build_user_index()</h3>
-              <p>建立 <code>wxid ↔ display_name</code> 映射，为后续解析 <code>@某人</code> 做准备。</p>
-            </article>
-            <article>
-              <span>Step 3</span>
-              <h3>extract_interactions()</h3>
-              <p>从消息中抽取 mention、quote、pat、adjacent 四类关系，同时累计节点统计。</p>
-            </article>
-            <article>
-              <span>Step 4</span>
-              <h3>build_graph()</h3>
-              <p>筛选活跃用户后，将节点和边写入 NetworkX 图，再执行 Louvain 社区发现。</p>
-            </article>
-          </div>
-        </div>
-      </section>
-
-      <section class="slide" data-title="Node 来源">
-        <div class="slide__content">
-          <div class="kicker">03</div>
-          <h2><code>node</code> 属性来源</h2>
-          <div class="two-col">
-            <div class="code-panel">
-              <div class="code-panel__title">初始化结构</div>
-              <pre><code>node = defaultdict(lambda: dict(
-  msg=0,
-  mention_out=0,
-  mention_in=0,
-  quote_out=0,
-  quote_in=0
-))</code></pre>
-            </div>
-            <div>
-              <h3>来源解释</h3>
-              <ul class="clean-list">
-                <li><code>msg</code>：每遍历到一条该用户发送的消息就加 1。</li>
-                <li><code>mention_out</code>：该用户在文本里 <code>@</code> 别人的次数。</li>
-                <li><code>mention_in</code>：别人 <code>@</code> 到该用户的次数。</li>
-                <li><code>quote_out</code>：该用户发送“引用消息”的次数。</li>
-                <li><code>quote_in</code>：该用户被别人引用回复的次数。</li>
-              </ul>
-            </div>
-          </div>
-          <div class="note-box">结论：<code>node</code> 不是外部输入字段，而是从消息遍历过程中动态累计出来的“用户画像统计”。</div>
-        </div>
-      </section>
-
-      <section class="slide" data-title="Edges 来源">
-        <div class="slide__content">
-          <div class="kicker">04</div>
-          <h2><code>edges</code> 属性来源</h2>
-          <div class="cards four">
-            <article class="fact-card">
-              <h3>@ 提及</h3>
-              <p>文本或引用消息中出现 <code>@昵称</code>，通过 <code>name2id</code> 映射到目标用户。</p>
-            </article>
-            <article class="fact-card">
-              <h3>引用回复</h3>
-              <p>引用消息没有直接携带被引用者时，退化为“回复给最近一位非自己发言的人”。</p>
-            </article>
-            <article class="fact-card">
-              <h3>拍一拍</h3>
-              <p>从消息内容中用正则抽出两个 ID，作为一次 pat 关系。</p>
-            </article>
-            <article class="fact-card">
-              <h3>邻近接话</h3>
-              <p>若与上一条不同发送者的消息时间差不超过 30 秒，则记一次 adjacent。</p>
-            </article>
-          </div>
-          <div class="code-panel compact">
-            <div class="code-panel__title">边权重合成</div>
-            <pre><code>total =
-  mention * 3.0 +
-  quote   * 4.0 +
-  pat     * 2.0 +
-  adjacent* 1.0</code></pre>
-          </div>
-          <div class="note-box">结论：<code>edges</code> 是“多种互动证据”的汇总结果，最终以 <code>total</code> 作为建图权重。</div>
-        </div>
-      </section>
-
-      <section class="slide" data-title="图中节点和边">
-        <div class="slide__content">
-          <div class="kicker">05</div>
-          <h2>进入图结构时，节点和边各带什么信息</h2>
-          <div class="two-col">
-            <div class="schema-card">
-              <h3>Node 写入 Graph</h3>
-              <pre><code>G.add_node(uid,
-  label=id2name.get(uid, uid),
-  msg_count=node_stats[uid]["msg"]
-)</code></pre>
-              <p>只保留发言数 <code>&gt;= MIN_MESSAGES</code> 的活跃用户。</p>
-            </div>
-            <div class="schema-card">
-              <h3>Edge 写入 Graph</h3>
-              <pre><code>G.add_edge(a, b,
-  weight=d["total"],
-  mention=d["mention"],
-  quote=d["quote"],
-  pat=d["pat"],
-  adjacent=d["adjacent"],
-  total=d["total"]
-)</code></pre>
-              <p>只保留双方都活跃且总权重大于 0 的关系。</p>
-            </div>
-          </div>
-          <div class="note-box">图不是直接读取 JSON 成品，而是先抽统计，再筛活跃用户，再写入图结构。</div>
-        </div>
-      </section>
-
-      <section class="slide" data-title="DeepWiki">
-        <div class="slide__content">
-          <div class="kicker">06</div>
-          <h2>已掌握：使用 DeepWiki 阅读 GitHub 项目</h2>
-          <div class="two-col">
-            <div>
-              <h3>用途</h3>
-              <ul class="clean-list">
-                <li>快速浏览仓库结构与模块关系。</li>
-                <li>辅助定位入口文件、数据流和依赖关系。</li>
-                <li>适合在正式读源码前做全局扫图。</li>
-              </ul>
-            </div>
-            <div>
-              <h3>汇报可讲的价值</h3>
-              <ul class="clean-list">
-                <li>提升理解陌生仓库的起步速度。</li>
-                <li>减少盲目逐文件阅读的成本。</li>
-                <li>便于先形成“项目地图”，再回到关键函数深挖。</li>
-              </ul>
-            </div>
-          </div>
-          <div class="note-box">一句话总结：DeepWiki 更像“项目导航层”，帮助先建立整体认知，再进入代码细节。</div>
-        </div>
-      </section>
-
-      <section class="slide" data-title="问题与风险">
-        <div class="slide__content">
-          <div class="kicker">07</div>
-          <h2>当前未解决问题</h2>
-          <div class="spotlight">
-            <h3>尚未找到节省 token 的第三方中转工具</h3>
-            <p>目前没有确认到既稳定、合规，又能明显降低成本的可用方案。因此这部分仍处于调研状态，不建议在汇报中给出确定性结论。</p>
-          </div>
-          <div class="cards three">
-            <article class="fact-card">
-              <h3>风险</h3>
-              <p>第三方中转存在稳定性、隐私、账号风控与可持续性问题。</p>
-            </article>
-            <article class="fact-card">
-              <h3>汇报建议</h3>
-              <p>表述为“已识别需求，但暂未确认可靠工具”。</p>
-            </article>
-            <article class="fact-card">
-              <h3>后续方向</h3>
-              <p>优先评估提示压缩、分阶段调用、缓存与检索剪枝等原生节省策略。</p>
-            </article>
-          </div>
-        </div>
-      </section>
-
-      <section class="slide" data-title="下一步">
-        <div class="slide__content">
-          <div class="kicker">08</div>
-          <h2>下一步计划</h2>
-          <div class="timeline next">
-            <article>
-              <span>A</span>
-              <h3>补全后半段代码理解</h3>
-              <p>继续梳理可视化过滤、导出报表和 HTML 渲染逻辑。</p>
-            </article>
-            <article>
-              <span>B</span>
-              <h3>固化汇报口径</h3>
-              <p>把 node/edges 来源整理成 2 分钟内可讲清的口头版本。</p>
-            </article>
-            <article>
-              <span>C</span>
-              <h3>继续调研降 token 方案</h3>
-              <p>若第三方方案不可靠，则转向 prompt 压缩与缓存策略。</p>
-            </article>
-          </div>
-        </div>
-      </section>
-    </main>
+<!-- 1 封面 -->
+<section class="slide center">
+  <div class="eyebrow">项目汇报 · 2026</div>
+  <h1>GraphRAG 群聊<br>人物关系分析</h1>
+  <p class="subtitle">基于菜园电竞俱乐部（doge-）微信群 2025 全年聊天记录<br>
+     实现实体—关系图谱构建 · 社区发现 · 交互式检索</p>
+  <div class="grid g3" style="max-width: 720px; margin: 20px auto 0;">
+    <div class="card"><div class="k">聊天记录</div><div class="v">6,696</div></div>
+    <div class="card"><div class="k">群成员</div><div class="v">210</div></div>
+    <div class="card"><div class="k">社区数</div><div class="v">8</div></div>
   </div>
+  <p class="meta-line">按 → 或 Space 开始</p>
+</section>
 
-  <div class="pager" id="pager"></div>
-  <script src="script.js"></script>
+<!-- 2 背景 -->
+<section class="slide">
+  <div class="eyebrow">01 · 项目背景</div>
+  <h2>为什么要给聊天群建"关系图"</h2>
+  <div class="two-col">
+    <div>
+      <h3>问题</h3>
+      <p style="color: var(--muted); margin-bottom: 20px;">
+        一个 200+ 人的活跃群聊，肉眼几乎无法回答：<br>
+        · 谁跟谁互动最频繁？<br>
+        · 群里有几个小圈子？<br>
+        · 某两个人是通过谁认识的？
+      </p>
+    </div>
+    <div>
+      <h3>思路</h3>
+      <p style="color: var(--muted);">
+        用轻量级 GraphRAG 方法：<br>
+        · 从结构化聊天数据抽取实体—关系<br>
+        · Louvain 算法自动发现社区<br>
+        · 提供可视化 + 命令行检索接口<br>
+        · <b>无需大模型反复调用</b>
+      </p>
+    </div>
+  </div>
+</section>
+
+<!-- 3 核心需求 -->
+<section class="slide">
+  <div class="eyebrow">02 · 需求拆解</div>
+  <h2>7 条核心要求（源自 yaoqiu.docx）</h2>
+  <div class="grid g2">
+    <div class="card">
+      <h3>数据解析</h3>
+      <p style="color: var(--muted); font-size: 14px;">抽取昵称、发言、@提及、互相回复、私聊互动</p>
+    </div>
+    <div class="card">
+      <h3>图谱构建</h3>
+      <p style="color: var(--muted); font-size: 14px;">用户为节点、互动为边，轻量结构不依赖重型图数据库</p>
+    </div>
+    <div class="card">
+      <h3>Louvain 社区发现</h3>
+      <p style="color: var(--muted); font-size: 14px;">自动聚类，标注每社区内的高互动核心人物</p>
+    </div>
+    <div class="card">
+      <h3>交互式可视化</h3>
+      <p style="color: var(--muted); font-size: 14px;">节点大小∝发言量、边粗细∝互动、社区区分色</p>
+    </div>
+    <div class="card">
+      <h3>指标汇总</h3>
+      <p style="color: var(--muted); font-size: 14px;">发言量、最强好友、所属社区导出 CSV</p>
+    </div>
+    <div class="card">
+      <h3>轻量 GraphRAG</h3>
+      <p style="color: var(--muted); font-size: 14px;">纯结构化数据驱动，不依赖大模型</p>
+    </div>
+  </div>
+</section>
+
+<!-- 4 技术栈 -->
+<section class="slide">
+  <div class="eyebrow">03 · 技术栈</div>
+  <h2>依赖最小化的 Python 方案</h2>
+  <div style="margin-top: 30px;">
+    <span class="pill">Python 3.14</span>
+    <span class="pill">NetworkX</span>
+    <span class="pill">python-louvain</span>
+    <span class="pill">pyvis</span>
+    <span class="pill">pandas</span>
+    <span class="pill">pickle</span>
+  </div>
+  <div class="two-col" style="margin-top: 40px;">
+    <div class="card">
+      <h3>图结构与算法</h3>
+      <p style="color: var(--muted);">NetworkX 承载节点/边/权重；python-louvain 做社区发现</p>
+    </div>
+    <div class="card">
+      <h3>可视化与持久化</h3>
+      <p style="color: var(--muted);">pyvis 生成交互式 HTML；pandas 导 CSV；pickle 存图状态</p>
+    </div>
+  </div>
+</section>
+
+<!-- 5 5步流程 -->
+<section class="slide">
+  <div class="eyebrow">04 · 流水线</div>
+  <h2>5 步数据管道</h2>
+  <div class="arrow-flow">
+    <div class="node">1 · 数据清洗</div>
+    <div class="arrow">→</div>
+    <div class="node">2 · 实体索引</div>
+    <div class="arrow">→</div>
+    <div class="node">3 · 关系抽取</div>
+    <div class="arrow">→</div>
+    <div class="node">4 · Louvain</div>
+    <div class="arrow">→</div>
+    <div class="node">5 · 可视化 / CSV</div>
+  </div>
+  <div class="grid g3" style="margin-top: 40px;">
+    <div class="card">
+      <div class="k">原始条数</div>
+      <div class="v">6,696</div>
+      <div class="d">clean_chat.json</div>
+    </div>
+    <div class="card">
+      <div class="k">清洗后</div>
+      <div class="v">6,458</div>
+      <div class="d">去除系统消息</div>
+    </div>
+    <div class="card">
+      <div class="k">唯一实体</div>
+      <div class="v">205</div>
+      <div class="d">wxid ↔ 昵称双向映射</div>
+    </div>
+  </div>
+</section>
+
+<!-- 6 关系抽取 -->
+<section class="slide">
+  <div class="eyebrow">05 · 关系抽取</div>
+  <h2>四类互动 → 加权融合</h2>
+  <table>
+    <thead>
+      <tr>
+        <th>互动类型</th>
+        <th>来源</th>
+        <th class="num">单次权重</th>
+        <th class="num">总触发数</th>
+      </tr>
+    </thead>
+    <tbody>
+      <tr>
+        <td>引用回复</td>
+        <td>type 244813135921</td>
+        <td class="num">4.0</td>
+        <td class="num">246</td>
+      </tr>
+      <tr>
+        <td>@提及</td>
+        <td>正则匹配 <span class="mono">@昵称</span></td>
+        <td class="num">3.0</td>
+        <td class="num">数千</td>
+      </tr>
+      <tr>
+        <td>拍一拍</td>
+        <td>type 266287972401</td>
+        <td class="num">2.0</td>
+        <td class="num">21</td>
+      </tr>
+      <tr>
+        <td>邻近接话</td>
+        <td>30 秒内先后不同人发言</td>
+        <td class="num">1.0</td>
+        <td class="num">大量</td>
+      </tr>
+    </tbody>
+  </table>
+  <p style="margin-top: 24px; color: var(--muted); font-size: 14px;">
+    边权重 = @×3 + 引用×4 + 拍×2 + 邻近×1，写入无向图 <span class="mono">G</span>
+  </p>
+</section>
+
+<!-- 7 图规模 -->
+<section class="slide">
+  <div class="eyebrow">06 · 图谱规模</div>
+  <h2>过滤后的活跃社交图</h2>
+  <div class="grid g4">
+    <div class="card">
+      <div class="k">图节点</div>
+      <div class="v">125</div>
+      <div class="d">发言 ≥ 3 的活跃用户</div>
+    </div>
+    <div class="card">
+      <div class="k">图边</div>
+      <div class="v">554</div>
+      <div class="d">存在过互动的对</div>
+    </div>
+    <div class="card">
+      <div class="k">社区数</div>
+      <div class="v">8</div>
+      <div class="d">Louvain 自动划分</div>
+    </div>
+    <div class="card">
+      <div class="k">最强单边</div>
+      <div class="v">137</div>
+      <div class="d">TWELVE ↔ 行心.</div>
+    </div>
+  </div>
+  <p style="margin-top: 24px; color: var(--muted); font-size: 14px;">
+    孤立节点 6 个已丢弃；边权范围 1 – 137
+  </p>
+</section>
+
+<!-- 8 社区结果 -->
+<section class="slide">
+  <div class="eyebrow">07 · 社区发现结果</div>
+  <h2>Louvain 划分出的 8 个社区</h2>
+  <table>
+    <thead>
+      <tr><th>社区</th><th>人数</th><th>核心人物</th><th>规模</th></tr>
+    </thead>
+    <tbody>
+      <tr><td>#4</td><td class="num">41</td><td>泛泛之辈。</td>
+        <td><div class="bar"><div class="fill" style="width: 100%"></div></div></td></tr>
+      <tr><td>#3</td><td class="num">33</td><td>行心.</td>
+        <td><div class="bar"><div class="fill" style="width: 80%"></div></div></td></tr>
+      <tr><td>#6</td><td class="num">14</td><td>落时烟〔大知闲闲〕</td>
+        <td><div class="bar"><div class="fill" style="width: 34%"></div></div></td></tr>
+      <tr><td>#2</td><td class="num">14</td><td>陈熠</td>
+        <td><div class="bar"><div class="fill" style="width: 34%"></div></div></td></tr>
+      <tr><td>#5</td><td class="num">13</td><td>期d</td>
+        <td><div class="bar"><div class="fill" style="width: 32%"></div></div></td></tr>
+      <tr><td>#1</td><td class="num">6</td><td>him.</td>
+        <td><div class="bar"><div class="fill" style="width: 15%"></div></div></td></tr>
+      <tr><td>#0</td><td class="num">4</td><td>海</td>
+        <td><div class="bar"><div class="fill" style="width: 10%"></div></div></td></tr>
+    </tbody>
+  </table>
+</section>
+
+<!-- 9 强关系 Top -->
+<section class="slide">
+  <div class="eyebrow">08 · 头部强关系</div>
+  <h2>群里"最铁" Top 5</h2>
+  <table>
+    <thead>
+      <tr>
+        <th>#</th><th>关系</th>
+        <th class="num">总权重</th>
+        <th class="num">@</th>
+        <th class="num">引用</th>
+        <th class="num">拍</th>
+        <th class="num">接话</th>
+      </tr>
+    </thead>
+    <tbody>
+      <tr><td>1</td><td>TWELVE ↔ 行心.</td>
+        <td class="num"><b>137</b></td><td class="num">7</td><td class="num">9</td>
+        <td class="num">1</td><td class="num">78</td></tr>
+      <tr><td>2</td><td>我嘞格温 ↔ 行心.</td>
+        <td class="num"><b>108</b></td><td class="num">1</td><td class="num">5</td>
+        <td class="num">1</td><td class="num">83</td></tr>
+      <tr><td>3</td><td>泛泛之辈。 ↔ 行心.</td>
+        <td class="num"><b>83</b></td><td class="num">3</td><td class="num">6</td>
+        <td class="num">0</td><td class="num">50</td></tr>
+      <tr><td>4</td><td>TWELVE ↔ 王小逗</td>
+        <td class="num"><b>59</b></td><td class="num">2</td><td class="num">4</td>
+        <td class="num">0</td><td class="num">37</td></tr>
+      <tr><td>5</td><td>我嘞格温 ↔ 王小逗</td>
+        <td class="num"><b>54</b></td><td class="num">1</td><td class="num">4</td>
+        <td class="num">0</td><td class="num">35</td></tr>
+    </tbody>
+  </table>
+  <p style="margin-top: 20px; color: var(--muted); font-size: 14px;">
+    可见「行心.」是全群社交枢纽；邻近接话是绑定关系最主要的信号源
+  </p>
+</section>
+
+<!-- 10 可视化产物 -->
+<section class="slide">
+  <div class="eyebrow">09 · 可视化产物</div>
+  <h2>三张交互式 HTML 图谱</h2>
+  <div class="grid g3">
+    <div class="card">
+      <h3>chat_network.html</h3>
+      <p style="color: var(--muted); font-size: 14px; margin-top: 8px;">
+        简洁版全图<br>
+        · 节点大小 ∝ 发言量<br>
+        · 边粗细 ∝ 互动权重<br>
+        · 悬浮显示互动明细
+      </p>
+    </div>
+    <div class="card">
+      <h3>graph_visualization.html</h3>
+      <p style="color: var(--muted); font-size: 14px; margin-top: 8px;">
+        主干版（554 → 370 边）<br>
+        · 智能过滤弱边<br>
+        · 社区高亮 · 核心加星<br>
+        · 右上角人名下拉搜索
+      </p>
+    </div>
+    <div class="card">
+      <h3>graph_by_community/*</h3>
+      <p style="color: var(--muted); font-size: 14px; margin-top: 8px;">
+        8 张社区详图<br>
+        · 每社区单独一张<br>
+        · 内部边全显<br>
+        · 更紧凑布局
+      </p>
+    </div>
+  </div>
+</section>
+
+<!-- 11 GraphRAG 检索器 -->
+<section class="slide">
+  <div class="eyebrow">10 · 核心亮点</div>
+  <h2>GraphRAG 检索器 · 三种召回模式</h2>
+  <div class="step">
+    <div class="n">P</div>
+    <div class="body">
+      <h3>person &lt;昵称&gt; · 实体检索</h3>
+      <p>输入人名 → 返回其发言量、@/引用统计、Top-K 强关系、所属社区其他成员</p>
+    </div>
+  </div>
+  <div class="step">
+    <div class="n">→</div>
+    <div class="body">
+      <h3>path &lt;A&gt; &lt;B&gt; · 多跳桥梁</h3>
+      <p>用 <span class="mono">1/weight</span> 作距离跑 K-最短路径，找两人之间的社交桥梁</p>
+    </div>
+  </div>
+  <div class="step">
+    <div class="n">C</div>
+    <div class="body">
+      <h3>community &lt;id&gt; · 社区摘要</h3>
+      <p>成员按加权度排名、互动方式分布、Top5 内部强边、模板化文字摘要</p>
+    </div>
+  </div>
+  <p style="margin-top: 30px; color: var(--muted); font-size: 14px;">
+    附加：<span class="mono">list</span> 列社区、模糊昵称匹配（实体链接）、CLI + REPL 双模
+  </p>
+</section>
+
+<!-- 12 检索示例 -->
+<section class="slide">
+  <div class="eyebrow">11 · 真实召回示例</div>
+  <h2>path 行心. → 期d</h2>
+<pre><span class="c">$ python graphrag_retriever.py path 行心. 期d</span>
+
+<span class="k">路径 1</span>   跳数=1   最弱一跳=36.0   累计权重=36.0
+    行心.  —[36.0 | @0 引3 拍1 接22]→ 期d
+
+<span class="k">路径 2</span>   跳数=2   最弱一跳=18.0   累计权重=155.0
+    行心.  —[137.0 | @7 引9 拍1 接78]→ TWELVE
+    TWELVE —[18.0  | @0 引2 拍0 接10]→ 期d
+
+<span class="k">路径 3</span>   跳数=3   最弱一跳=18.0   累计权重=164.0
+    行心.  —[108.0 | @1 引5 拍1 接83]→ 我嘞格温
+    我嘞格温 —[38.0  | @0 引3 拍0 接26]→ TWELVE
+    TWELVE —[18.0  | @0 引2 拍0 接10]→ 期d</pre>
+  <p style="margin-top: 20px; color: var(--muted); font-size: 14px;">
+    输出块可直接喂给 LLM 做二次问答，即完成 GraphRAG 闭环
+  </p>
+</section>
+
+<!-- 13 项目文件 -->
+<section class="slide">
+  <div class="eyebrow">12 · 交付物</div>
+  <h2>项目文件清单</h2>
+  <div class="two-col">
+    <div>
+      <h3 style="color: var(--accent);">代码</h3>
+      <ul>
+        <li><span class="mono">graphrag_analysis.py</span> — 构图 + 社区 + 可视化</li>
+        <li><span class="mono">graphrag_retriever.py</span> — 三种召回 + REPL</li>
+      </ul>
+      <h3 style="color: var(--accent); margin-top: 24px;">状态 / 数据</h3>
+      <ul>
+        <li><span class="mono">graph_state.pkl</span> — 图状态快照</li>
+        <li><span class="mono">clean_chat.json</span> — 原始聊天记录</li>
+      </ul>
+    </div>
+    <div>
+      <h3 style="color: var(--accent);">HTML 可视化</h3>
+      <ul>
+        <li><span class="mono">chat_network.html</span></li>
+        <li><span class="mono">graph_visualization.html</span></li>
+        <li><span class="mono">graph_by_community/*.html</span></li>
+      </ul>
+      <h3 style="color: var(--accent); margin-top: 24px;">CSV 报表</h3>
+      <ul>
+        <li><span class="mono">node_stats.csv</span></li>
+        <li><span class="mono">edge_weights.csv</span></li>
+        <li><span class="mono">community_result.csv</span></li>
+      </ul>
+    </div>
+  </div>
+</section>
+
+<!-- 14 使用方式 -->
+<section class="slide center">
+  <div class="eyebrow">13 · 使用方式</div>
+  <h2>3 步启动</h2>
+  <div style="max-width: 720px; margin: 20px auto 0; text-align: left;">
+    <div class="step">
+      <div class="n">1</div>
+      <div class="body">
+        <h3>安装依赖</h3>
+        <p class="mono" style="color: var(--muted);">pip install networkx python-louvain pyvis pandas</p>
+      </div>
+    </div>
+    <div class="step">
+      <div class="n">2</div>
+      <div class="body">
+        <h3>跑分析（生成所有产物）</h3>
+        <p class="mono" style="color: var(--muted);">python graphrag_analysis.py</p>
+      </div>
+    </div>
+    <div class="step">
+      <div class="n">3</div>
+      <div class="body">
+        <h3>启动检索器</h3>
+        <p class="mono" style="color: var(--muted);">python graphrag_retriever.py</p>
+      </div>
+    </div>
+  </div>
+  <p class="meta-line">Thanks · End of Deck</p>
+</section>
+
+</main>
+
+<script>
+const slides = document.querySelectorAll('.slide');
+const total = slides.length;
+const counter = document.getElementById('counter');
+const progress = document.getElementById('progress');
+const dotsNav = document.getElementById('dotsNav');
+let current = 0;
+
+// Build dots
+slides.forEach((_, i) => {
+  const dot = document.createElement('span');
+  dot.onclick = () => goTo(i);
+  dotsNav.appendChild(dot);
+});
+
+function update() {
+  slides.forEach((s, i) => {
+    s.classList.remove('active', 'prev');
+    if (i === current) s.classList.add('active');
+    else if (i < current) s.classList.add('prev');
+  });
+  dotsNav.querySelectorAll('span').forEach((d, i) => {
+    d.classList.toggle('active', i === current);
+  });
+  counter.textContent = String(current + 1).padStart(2, '0')
+                      + ' / ' + String(total).padStart(2, '0');
+  progress.style.width = ((current + 1) / total * 100) + '%';
+  location.hash = current + 1;
+}
+
+function goTo(i) {
+  current = Math.max(0, Math.min(total - 1, i));
+  update();
+}
+function next() { goTo(current + 1); }
+function prev() { goTo(current - 1); }
+
+document.addEventListener('keydown', e => {
+  if (['ArrowRight', ' ', 'PageDown'].includes(e.key)) { e.preventDefault(); next(); }
+  else if (['ArrowLeft', 'PageUp'].includes(e.key))    { e.preventDefault(); prev(); }
+  else if (e.key === 'Home')                            { e.preventDefault(); goTo(0); }
+  else if (e.key === 'End')                             { e.preventDefault(); goTo(total - 1); }
+});
+
+// Touch swipe
+let touchStartX = 0;
+document.addEventListener('touchstart', e => { touchStartX = e.touches[0].clientX; }, { passive: true });
+document.addEventListener('touchend', e => {
+  const dx = e.changedTouches[0].clientX - touchStartX;
+  if (Math.abs(dx) > 50) dx < 0 ? next() : prev();
+}, { passive: true });
+
+// Click on empty area advances
+document.getElementById('deck').addEventListener('click', e => {
+  if (e.target.closest('a, button, pre, .dots-nav, .theme-toggle')) return;
+  next();
+});
+
+// Deep-link via #n
+const initial = parseInt(location.hash.slice(1)) - 1;
+if (!isNaN(initial) && initial >= 0 && initial < total) current = initial;
+
+// Theme
+function toggleTheme() {
+  const cur = document.documentElement.getAttribute('data-theme');
+  const next = cur === 'dark' ? 'light' : 'dark';
+  document.documentElement.setAttribute('data-theme', next);
+  localStorage.setItem('theme', next);
+}
+const saved = localStorage.getItem('theme');
+if (saved) document.documentElement.setAttribute('data-theme', saved);
+
+update();
+</script>
 </body>
 </html>

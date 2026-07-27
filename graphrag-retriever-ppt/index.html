@@ -1,0 +1,576 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>graphrag_retriever.py 总结</title>
+<style>
+:root {
+  --bg: #f8fafc;
+  --fg: #111827;
+  --muted: #64748b;
+  --line: #e2e8f0;
+  --panel: #ffffff;
+  --accent: #2563eb;
+  --accent-soft: #dbeafe;
+  --code: #0f172a;
+  --code-fg: #e5e7eb;
+}
+* { box-sizing: border-box; }
+html, body { margin: 0; min-height: 100%; }
+body {
+  overflow: hidden;
+  background: var(--bg);
+  color: var(--fg);
+  font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", "PingFang SC",
+    "Microsoft YaHei", sans-serif;
+}
+.progress {
+  position: fixed;
+  top: 0;
+  left: 0;
+  height: 3px;
+  width: 0;
+  background: var(--accent);
+  z-index: 5;
+}
+.topbar {
+  position: fixed;
+  left: 28px;
+  right: 28px;
+  top: 22px;
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  z-index: 4;
+  color: var(--muted);
+  font-size: 13px;
+}
+.brand {
+  display: flex;
+  gap: 10px;
+  align-items: center;
+  font-weight: 700;
+  color: var(--fg);
+}
+.mark {
+  width: 24px;
+  height: 24px;
+  border-radius: 6px;
+  background: var(--fg);
+  color: #fff;
+  display: grid;
+  place-items: center;
+  font-size: 12px;
+}
+.deck {
+  height: 100vh;
+  width: 100vw;
+  position: relative;
+}
+.slide {
+  position: absolute;
+  inset: 0;
+  padding: 90px 9vw 70px;
+  display: grid;
+  align-content: center;
+  opacity: 0;
+  transform: translateX(28px);
+  pointer-events: none;
+  transition: opacity 240ms ease, transform 240ms ease;
+}
+.slide.active {
+  opacity: 1;
+  transform: translateX(0);
+  pointer-events: auto;
+}
+.slide.prev { transform: translateX(-28px); }
+.content { max-width: 1120px; }
+.center { margin: 0 auto; text-align: center; }
+.kicker {
+  margin: 0 0 14px;
+  color: var(--accent);
+  font-size: 13px;
+  font-weight: 700;
+  letter-spacing: 0.14em;
+  text-transform: uppercase;
+}
+h1, h2, h3, p { margin-top: 0; }
+h1 {
+  margin-bottom: 22px;
+  font-size: clamp(38px, 6vw, 76px);
+  line-height: 1.04;
+  letter-spacing: 0;
+}
+h2 {
+  margin-bottom: 24px;
+  font-size: clamp(30px, 4.2vw, 54px);
+  line-height: 1.12;
+  letter-spacing: 0;
+}
+h3 {
+  margin-bottom: 8px;
+  font-size: 18px;
+}
+p, li {
+  color: var(--muted);
+  font-size: clamp(16px, 1.45vw, 20px);
+  line-height: 1.72;
+}
+.lead {
+  max-width: 820px;
+  margin-left: auto;
+  margin-right: auto;
+}
+.grid {
+  display: grid;
+  gap: 16px;
+  margin-top: 24px;
+}
+.g2 { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+.g3 { grid-template-columns: repeat(3, minmax(0, 1fr)); }
+.card {
+  min-height: 150px;
+  padding: 22px;
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  background: var(--panel);
+}
+.card p { margin-bottom: 0; font-size: 16px; }
+.number {
+  color: var(--accent);
+  font-size: 13px;
+  font-weight: 800;
+  letter-spacing: 0.12em;
+}
+.flow {
+  display: grid;
+  grid-template-columns: repeat(5, minmax(0, 1fr));
+  gap: 12px;
+  margin-top: 26px;
+}
+.flow .step {
+  min-height: 130px;
+  padding: 18px;
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  background: var(--panel);
+}
+.step strong {
+  display: block;
+  margin: 10px 0 8px;
+  font-size: 18px;
+}
+.step span { color: var(--muted); font-size: 14px; line-height: 1.55; }
+.two {
+  display: grid;
+  grid-template-columns: 0.95fr 1.05fr;
+  gap: 28px;
+  align-items: start;
+}
+ul { margin: 0; padding-left: 22px; }
+li { padding: 5px 0; }
+code {
+  padding: 2px 6px;
+  border-radius: 5px;
+  background: var(--accent-soft);
+  color: #1e40af;
+  font-family: ui-monospace, "SFMono-Regular", Consolas, monospace;
+  font-size: 0.9em;
+}
+pre {
+  margin: 20px 0 0;
+  padding: 18px 20px;
+  border-radius: 8px;
+  overflow: auto;
+  background: var(--code);
+  color: var(--code-fg);
+  font-size: clamp(12px, 1.1vw, 15px);
+  line-height: 1.6;
+}
+pre code {
+  padding: 0;
+  background: transparent;
+  color: inherit;
+}
+.matrix {
+  width: 100%;
+  border-collapse: collapse;
+  margin-top: 22px;
+  background: var(--panel);
+  border: 1px solid var(--line);
+}
+.matrix th, .matrix td {
+  padding: 14px 16px;
+  border-bottom: 1px solid var(--line);
+  text-align: left;
+  vertical-align: top;
+}
+.matrix th {
+  color: var(--muted);
+  font-size: 13px;
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+}
+.matrix td { font-size: 16px; line-height: 1.6; }
+.tagline {
+  display: inline-flex;
+  gap: 8px;
+  flex-wrap: wrap;
+  justify-content: center;
+  margin-top: 22px;
+}
+.tagline span {
+  padding: 7px 10px;
+  border: 1px solid var(--line);
+  border-radius: 999px;
+  background: var(--panel);
+  color: var(--muted);
+  font-size: 14px;
+}
+.pager {
+  position: fixed;
+  right: 28px;
+  bottom: 24px;
+  color: var(--muted);
+  font-size: 13px;
+  z-index: 4;
+}
+.hint {
+  position: fixed;
+  left: 28px;
+  bottom: 24px;
+  color: var(--muted);
+  font-size: 13px;
+  z-index: 4;
+}
+.dots {
+  position: fixed;
+  left: 50%;
+  bottom: 25px;
+  transform: translateX(-50%);
+  display: flex;
+  gap: 6px;
+  z-index: 4;
+}
+.dots button {
+  width: 7px;
+  height: 7px;
+  padding: 0;
+  border: 0;
+  border-radius: 999px;
+  background: #cbd5e1;
+  cursor: pointer;
+}
+.dots button.active {
+  width: 26px;
+  background: var(--accent);
+}
+@media (max-width: 820px) {
+  body { overflow: auto; }
+  .topbar, .hint, .pager, .dots, .progress { display: none; }
+  .deck { height: auto; }
+  .slide {
+    position: relative;
+    opacity: 1;
+    transform: none;
+    pointer-events: auto;
+    min-height: auto;
+    padding: 42px 22px;
+    border-bottom: 1px solid var(--line);
+  }
+  .g2, .g3, .flow, .two { grid-template-columns: 1fr; }
+  .card { min-height: auto; }
+}
+</style>
+</head>
+<body>
+<div class="progress" id="progress"></div>
+<div class="topbar">
+  <div class="brand"><span class="mark">GR</span> graphrag_retriever.py</div>
+  <div>简约汇报 · 2026-07-27</div>
+</div>
+<div class="hint">← / → 翻页 · Space 下一页</div>
+<div class="pager" id="pager">01 / 09</div>
+<div class="dots" id="dots"></div>
+
+<main class="deck" id="deck">
+  <section class="slide active">
+    <div class="content center">
+      <p class="kicker">GraphRAG Retriever Review</p>
+      <h1>轻量 GraphRAG<br>检索器总结</h1>
+      <p class="lead">
+        面向微信群聊关系图谱的命令行检索层：读取 <code>graph_state.pkl</code>，
+        将人、路径、社区三类图结构召回为可读上下文，供人工查看或喂给 LLM 二次生成。
+      </p>
+      <div class="tagline">
+        <span>实体检索</span><span>关系路径</span><span>社区摘要</span><span>CLI / REPL</span>
+      </div>
+    </div>
+  </section>
+
+  <section class="slide">
+    <div class="content">
+      <p class="kicker">01 · 文件定位</p>
+      <h2>它不是构图脚本，而是图谱检索入口</h2>
+      <div class="grid g3">
+        <div class="card">
+          <div class="number">Input</div>
+          <h3>graph_state.pkl</h3>
+          <p>由 <code>graphrag_analysis.py</code> 预先生成，包含图、昵称映射、社区划分、节点统计等状态。</p>
+        </div>
+        <div class="card">
+          <div class="number">Core</div>
+          <h3>networkx 图检索</h3>
+          <p>在已有关系图 <code>G</code> 上读取节点、边权、社区成员和路径，不重新解析聊天记录。</p>
+        </div>
+        <div class="card">
+          <div class="number">Output</div>
+          <h3>上下文块</h3>
+          <p>输出结构化文本：个人关系、两人桥梁、社区成员与摘要，可直接作为 Prompt Context。</p>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <section class="slide">
+    <div class="content">
+      <p class="kicker">02 · 代码结构</p>
+      <h2>单文件，按检索动作分层</h2>
+      <div class="flow">
+        <div class="step"><span>0</span><strong>load_state</strong><span>读取 <code>graph_state.pkl</code>，缺失时提示先运行分析脚本。</span></div>
+        <div class="step"><span>1</span><strong>resolve_user</strong><span>按精确昵称或子串做实体链接，多候选时要求用户细化。</span></div>
+        <div class="step"><span>2</span><strong>query_person</strong><span>以人为中心召回强关系、互动统计和社区上下文。</span></div>
+        <div class="step"><span>3</span><strong>query_path</strong><span>查询两人之间 Top-K 最强连接路径。</span></div>
+        <div class="step"><span>4</span><strong>query_community</strong><span>汇总社区成员、内部互动和模板摘要。</span></div>
+      </div>
+      <pre><code>python graphrag_retriever.py
+python graphrag_retriever.py person 行心.
+python graphrag_retriever.py path 行心. 期d 3
+python graphrag_retriever.py community 3
+python graphrag_retriever.py list</code></pre>
+    </div>
+  </section>
+
+  <section class="slide">
+    <div class="content">
+      <p class="kicker">03 · GraphRAG 在这里如何实现</p>
+      <h2>核心是“图谱召回”，不是大模型生成</h2>
+      <div class="two">
+        <div>
+          <p>
+            这个文件把 GraphRAG 拆成一个轻量闭环：先从持久化图状态中定位实体，
+            再沿图结构召回关系证据，最后把证据整理成可读上下文。
+          </p>
+          <ul>
+            <li>实体：微信群用户，使用 wxid 作为稳定节点 ID。</li>
+            <li>关系：互动边，边上保存 <code>weight</code>、<code>mention</code>、<code>quote</code>、<code>pat</code>、<code>adjacent</code>。</li>
+            <li>社区：Louvain 结果已写入 <code>partition</code>、<code>comm_members</code>、<code>comm_cores</code>。</li>
+            <li>回答：当前使用模板化输出；LLM 可接在输出之后做自然语言总结。</li>
+          </ul>
+        </div>
+        <div class="card">
+          <h3>GraphRAG 映射关系</h3>
+          <table class="matrix">
+            <tr><td>Query</td><td>人名、两人关系、社区 ID</td></tr>
+            <tr><td>Retrieve</td><td>节点邻居、最强路径、社区内部边</td></tr>
+            <tr><td>Context</td><td>结构化关系证据和统计摘要</td></tr>
+            <tr><td>Generate</td><td>脚本内模板生成，或交给 LLM 二次生成</td></tr>
+          </table>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <section class="slide">
+    <div class="content">
+      <p class="kicker">04 · 三类检索能力</p>
+      <h2>从点、线、群三个视角召回上下文</h2>
+      <table class="matrix">
+        <thead>
+          <tr><th>命令</th><th>解决的问题</th><th>关键实现</th><th>输出内容</th></tr>
+        </thead>
+        <tbody>
+          <tr>
+            <td><code>person</code></td>
+            <td>某个人在群里的社交位置是什么？</td>
+            <td>读取节点属性、加权度、邻居边权和所属社区。</td>
+            <td>发言量、@/引用统计、Top-K 强关系、同社区成员。</td>
+          </tr>
+          <tr>
+            <td><code>path</code></td>
+            <td>两个人之间通过谁连接？</td>
+            <td>复制图，将 <code>distance = 1 / weight</code>，用 <code>shortest_simple_paths</code> 求强路径。</td>
+            <td>跳数、最弱一跳、累计权重、每条边的互动明细。</td>
+          </tr>
+          <tr>
+            <td><code>community</code></td>
+            <td>一个社区内部是谁主导、怎么互动？</td>
+            <td>按加权度排名成员，统计社区内边的互动类型分布。</td>
+            <td>核心人物、成员榜、内部 Top5 强关系、模板摘要。</td>
+          </tr>
+        </tbody>
+      </table>
+    </div>
+  </section>
+
+  <section class="slide">
+    <div class="content">
+      <p class="kicker">05 · 关键算法细节</p>
+      <h2>把“关系强度”转成可检索的图信号</h2>
+      <div class="grid g2">
+        <div class="card">
+          <h3>实体链接</h3>
+          <p><code>resolve_user</code> 先精确匹配昵称，再做子串匹配。多候选不盲选，返回候选列表，降低错连实体的风险。</p>
+        </div>
+        <div class="card">
+          <h3>强关系排序</h3>
+          <p><code>query_person</code> 按边上的 <code>weight</code> 降序排列邻居，所以输出的是互动证据最强的一跳关系。</p>
+        </div>
+        <div class="card">
+          <h3>最强路径</h3>
+          <p>路径搜索不是按跳数最少，而是用 <code>1/weight</code> 当距离，优先选择由强边组成的路径。</p>
+        </div>
+        <div class="card">
+          <h3>社区回答</h3>
+          <p>社区摘要通过统计主导互动类型、核心人物和内部边数量生成，属于无需 LLM 的模板版 GraphRAG 回答。</p>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <section class="slide">
+    <div class="content">
+      <p class="kicker">06 · 当前价值与限制</p>
+      <h2>工程上已经可用，但仍是轻量版</h2>
+      <div class="grid g2">
+        <div class="card">
+          <h3>价值</h3>
+          <ul>
+            <li>本地运行，不依赖在线模型。</li>
+            <li>输出可解释，每条关系都有权重和互动构成。</li>
+            <li>检索入口清晰，便于接入后续问答系统。</li>
+            <li>适合快速探索群聊社交结构。</li>
+          </ul>
+        </div>
+        <div class="card">
+          <h3>限制</h3>
+          <ul>
+            <li>没有语义向量检索，主要依赖结构关系。</li>
+            <li>回答生成是模板化的，表达能力有限。</li>
+            <li>实体消歧只基于昵称字符串，缺少上下文判断。</li>
+            <li>图状态是 pickle 快照，跨版本和可审计性一般。</li>
+          </ul>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <section class="slide">
+    <div class="content">
+      <p class="kicker">07 · 下一步：了解 LightRAG</p>
+      <h2>LightRAG 可以补上“语义 + 图”的组合检索</h2>
+      <div class="grid g3">
+        <div class="card">
+          <div class="number">Compare</div>
+          <h3>先对齐概念</h3>
+          <p>比较当前 GraphRAG 的实体/边/社区召回，与 LightRAG 的实体抽取、关系抽取、向量检索、图检索流程。</p>
+        </div>
+        <div class="card">
+          <div class="number">Prototype</div>
+          <h3>做最小样例</h3>
+          <p>选一小段聊天记录，用 LightRAG 跑入库和问答，观察它如何生成实体、关系和回答证据。</p>
+        </div>
+        <div class="card">
+          <div class="number">Integrate</div>
+          <h3>规划融合</h3>
+          <p>保留当前 NetworkX 社交图作为强结构信号，再引入 LightRAG 处理语义问答和文本证据。</p>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <section class="slide">
+    <div class="content center">
+      <p class="kicker">08 · 结论</p>
+      <h2>这个文件把聊天关系图<br>变成了可查询的 RAG 上下文</h2>
+      <p class="lead">
+        <code>graphrag_retriever.py</code> 的实现重点是稳定、可解释、低依赖：
+        通过实体解析、图路径搜索和社区统计，把复杂群聊关系压缩成面向问答的上下文块。
+        下一阶段重点是学习 LightRAG，并评估是否加入语义检索与自动生成能力。
+      </p>
+    </div>
+  </section>
+</main>
+
+<script>
+const slides = Array.from(document.querySelectorAll(".slide"));
+const dots = document.getElementById("dots");
+const pager = document.getElementById("pager");
+const progress = document.getElementById("progress");
+let current = 0;
+
+slides.forEach((_, i) => {
+  const dot = document.createElement("button");
+  dot.type = "button";
+  dot.setAttribute("aria-label", `第 ${i + 1} 页`);
+  dot.addEventListener("click", () => go(i));
+  dots.appendChild(dot);
+});
+
+function go(index) {
+  current = Math.max(0, Math.min(slides.length - 1, index));
+  slides.forEach((slide, i) => {
+    slide.classList.toggle("active", i === current);
+    slide.classList.toggle("prev", i < current);
+  });
+  Array.from(dots.children).forEach((dot, i) => {
+    dot.classList.toggle("active", i === current);
+  });
+  pager.textContent = `${String(current + 1).padStart(2, "0")} / ${String(slides.length).padStart(2, "0")}`;
+  progress.style.width = `${((current + 1) / slides.length) * 100}%`;
+  history.replaceState(null, "", `#${current + 1}`);
+}
+
+function next() { go(current + 1); }
+function prev() { go(current - 1); }
+
+document.addEventListener("keydown", (event) => {
+  if (["ArrowRight", " ", "PageDown"].includes(event.key)) {
+    event.preventDefault();
+    next();
+  }
+  if (["ArrowLeft", "PageUp"].includes(event.key)) {
+    event.preventDefault();
+    prev();
+  }
+  if (event.key === "Home") {
+    event.preventDefault();
+    go(0);
+  }
+  if (event.key === "End") {
+    event.preventDefault();
+    go(slides.length - 1);
+  }
+});
+
+let startX = 0;
+document.addEventListener("touchstart", (event) => {
+  startX = event.touches[0].clientX;
+}, { passive: true });
+document.addEventListener("touchend", (event) => {
+  const dx = event.changedTouches[0].clientX - startX;
+  if (Math.abs(dx) > 50) dx < 0 ? next() : prev();
+}, { passive: true });
+
+document.getElementById("deck").addEventListener("click", (event) => {
+  if (event.target.closest("button, pre, code")) return;
+  next();
+});
+
+const fromHash = parseInt(location.hash.slice(1), 10) - 1;
+if (!Number.isNaN(fromHash)) current = fromHash;
+go(current);
+</script>
+</body>
+</html>

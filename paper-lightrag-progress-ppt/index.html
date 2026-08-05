@@ -1,0 +1,297 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>paper_lightrag.py 阶段性进度汇报</title>
+  <style>
+    :root {
+      --bg: #f4f1eb;
+      --ink: #17252b;
+      --muted: #607078;
+      --line: #d8ddd9;
+      --paper: #fffdf9;
+      --teal: #16796b;
+      --teal-soft: #dceee9;
+      --gold: #bd7a2c;
+      --dark: #10252b;
+      --white: #f8fbfa;
+    }
+    * { box-sizing: border-box; }
+    html, body { margin: 0; min-height: 100%; background: var(--bg); color: var(--ink); }
+    body { font-family: "Microsoft YaHei", "PingFang SC", system-ui, sans-serif; overflow: hidden; }
+    button { font: inherit; }
+    .topline { position: fixed; inset: 0 0 auto; height: 5px; background: var(--teal); z-index: 5; }
+    .deck { height: 100vh; position: relative; }
+    .slide {
+      position: absolute; inset: 0; padding: 7vh 9vw 8vh;
+      display: flex; flex-direction: column; justify-content: center;
+      opacity: 0; transform: translateX(24px);
+      pointer-events: none; transition: opacity .28s ease, transform .28s ease;
+      overflow: auto;
+    }
+    .slide.active { opacity: 1; transform: none; pointer-events: auto; }
+    .eyebrow { color: var(--teal); font-size: 13px; font-weight: 700; letter-spacing: .16em; margin-bottom: 14px; }
+    h1, h2, h3, p { margin-top: 0; }
+    h1 { max-width: 900px; font-size: clamp(42px, 6vw, 82px); line-height: 1.04; margin-bottom: 22px; }
+    h2 { font-size: clamp(31px, 4vw, 56px); line-height: 1.1; margin-bottom: 24px; }
+    h3 { font-size: 20px; margin-bottom: 8px; }
+    p, li { font-size: clamp(16px, 1.5vw, 21px); line-height: 1.6; }
+    .lead { color: var(--muted); max-width: 820px; }
+    .meta { color: var(--muted); font-size: 14px; margin-top: 24px; }
+    .grid { display: grid; gap: 16px; margin-top: 18px; }
+    .g2 { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+    .g3 { grid-template-columns: repeat(3, minmax(0, 1fr)); }
+    .g4 { grid-template-columns: repeat(4, minmax(0, 1fr)); }
+    .card { background: var(--paper); border: 1px solid var(--line); border-radius: 7px; padding: 20px; }
+    .card p { color: var(--muted); font-size: 15px; margin-bottom: 0; }
+    .label { color: var(--muted); font-size: 12px; letter-spacing: .12em; text-transform: uppercase; }
+    .number { font-size: 38px; font-weight: 750; margin: 6px 0; color: var(--teal); }
+    .flow { display: flex; flex-wrap: wrap; align-items: stretch; gap: 10px; margin-top: 26px; }
+    .flow .node { flex: 1 1 145px; min-height: 74px; padding: 16px; background: var(--paper); border: 1px solid var(--line); border-top: 4px solid var(--teal); border-radius: 6px; }
+    .flow .arrow { align-self: center; color: var(--gold); font-size: 24px; }
+    .code { background: var(--dark); color: var(--white); border-radius: 7px; padding: 18px 20px; font: 14px/1.65 Consolas, "Courier New", monospace; white-space: pre-wrap; }
+    .code .key { color: #8dd9c9; } .code .str { color: #f1c77a; } .code .comment { color: #8fa4a9; }
+    .tag { display: inline-block; background: var(--teal-soft); color: var(--teal); padding: 7px 10px; margin: 4px 4px 0 0; border-radius: 4px; font-size: 14px; font-weight: 700; }
+    .step { display: grid; grid-template-columns: 42px 1fr; gap: 14px; padding: 15px 0; border-bottom: 1px solid var(--line); }
+    .step:last-child { border-bottom: 0; }
+    .stepno { width: 34px; height: 34px; display: grid; place-items: center; border-radius: 50%; background: var(--teal); color: white; font-weight: 700; }
+    .step p { margin: 0; color: var(--muted); font-size: 15px; }
+    ul { margin: 0; padding-left: 22px; }
+    li { color: var(--muted); font-size: 16px; margin: 8px 0; }
+    li::marker { color: var(--teal); }
+    table { width: 100%; border-collapse: collapse; background: var(--paper); border: 1px solid var(--line); font-size: 15px; }
+    th, td { text-align: left; padding: 12px 14px; border-bottom: 1px solid var(--line); vertical-align: top; }
+    th { color: var(--muted); font-size: 12px; letter-spacing: .08em; text-transform: uppercase; }
+    tr:last-child td { border-bottom: 0; }
+    .mono { font-family: Consolas, "Courier New", monospace; }
+    .accent { color: var(--teal); font-weight: 700; }
+    .footer { position: fixed; right: 22px; bottom: 18px; color: var(--muted); font-size: 13px; z-index: 6; }
+    .nav { position: fixed; left: 22px; bottom: 16px; display: flex; gap: 8px; z-index: 6; }
+    .nav button { border: 1px solid var(--line); background: var(--paper); color: var(--ink); width: 36px; height: 32px; border-radius: 5px; cursor: pointer; }
+    .nav button:hover { border-color: var(--teal); color: var(--teal); }
+    .progress { position: fixed; left: 0; bottom: 0; height: 4px; background: var(--teal); width: 0; z-index: 6; transition: width .25s ease; }
+    .center { align-items: center; text-align: center; }
+    .center .lead { max-width: 720px; }
+    @media (max-width: 900px) {
+      body { overflow: auto; }
+      .deck { height: auto; }
+      .slide { position: relative; min-height: 100vh; opacity: 1; transform: none; pointer-events: auto; padding: 64px 22px 72px; }
+      .slide:not(.active) { display: none; }
+      .g2, .g3, .g4 { grid-template-columns: 1fr; }
+      .flow .arrow { display: none; }
+    }
+  </style>
+</head>
+<body>
+  <div class="topline"></div>
+  <main class="deck" id="deck">
+    <section class="slide active center" data-title="封面">
+      <div class="eyebrow">阶段性进度汇报 · 代码阅读</div>
+      <h1>我已经读懂了<br><span class="accent">paper_lightrag.py</span></h1>
+      <p class="lead">这份脚本把群聊消息加工成“可检索的图谱状态”：既保留聊天原文，又用实体、关系、社区和向量索引组织上下文。</p>
+      <p class="meta">阅读对象：paper_lightrag.py　|　汇报重点：函数职责与处理链路</p>
+    </section>
+
+    <section class="slide" data-title="一句话总览">
+      <div class="eyebrow">01 · 总览</div>
+      <h2>从消息到答案的五层结构</h2>
+      <div class="flow">
+        <div class="node"><b>输入层</b><br><small>load_messages</small><br>过滤并排序消息</div>
+        <div class="arrow">→</div>
+        <div class="node"><b>切分层</b><br><small>make_chunks</small><br>按时间与数量分块</div>
+        <div class="arrow">→</div>
+        <div class="node"><b>图谱层</b><br><small>build_indexes</small><br>抽取实体与互动关系</div>
+        <div class="arrow">→</div>
+        <div class="node"><b>索引层</b><br><small>build_vector_indexes</small><br>建立文本向量矩阵</div>
+        <div class="arrow">→</div>
+        <div class="node"><b>回答层</b><br><small>retrieve / format_*</small><br>召回上下文并输出</div>
+      </div>
+      <p class="meta">核心理解：它不是单一的“聊天搜索脚本”，而是一条离线构建、在线查询的轻量 GraphRAG 管道。</p>
+    </section>
+
+    <section class="slide" data-title="数据模型">
+      <div class="eyebrow">02 · 数据模型</div>
+      <h2>四个 dataclass 是图谱状态的骨架</h2>
+      <div class="grid g4">
+        <div class="card"><div class="label">Chunk</div><h3>原文片段</h3><p>保存时间范围、参与者、消息 ID、拼接后的文本与稳定哈希，用作可追溯来源。</p></div>
+        <div class="card"><div class="label">Entity</div><h3>用户 / 话题</h3><p>统一记录实体类型、名称、描述、来源 chunk 和加权度 rank。</p></div>
+        <div class="card"><div class="label">Relation</div><h3>有向语义关系</h3><p>保存 source、target、类型、权重、事件统计和来源 chunk。</p></div>
+        <div class="card"><div class="label">CommunityReport</div><h3>社区摘要</h3><p>保存 Louvain 社区编号、标题、摘要、成员和社区权重。</p></div>
+      </div>
+      <div class="code" style="margin-top:18px"><span class="comment"># 状态的主要组成</span>
+state = {<span class="str">"chunks"</span>, <span class="str">"entities"</span>, <span class="str">"relations"</span>,
+         <span class="str">"communities"</span>, <span class="str">"G"</span>, <span class="str">"node_stats"</span>,
+         <span class="str">"vector_indexes"</span>}</div>
+    </section>
+
+    <section class="slide" data-title="基础函数">
+      <div class="eyebrow">03 · 基础工具函数</div>
+      <h2>先把文本变成稳定、可比较的表示</h2>
+      <div class="grid g2">
+        <div class="card"><h3><span class="mono">stable_hash</span></h3><p>对 UTF-8 文本做 SHA-1，给 chunk 和 relation 生成稳定 ID，支持增量复用与去重。</p></div>
+        <div class="card"><h3><span class="mono">normalize_vector</span></h3><p>按 L2 范数归一化向量；零向量原样返回，避免除零。</p></div>
+        <div class="card"><h3><span class="mono">char_ngrams</span></h3><p>去空白、转小写，产生 2 到 4 字符 n-gram，适配中文短文本与混合文本。</p></div>
+        <div class="card"><h3><span class="mono">embed_text / embed_texts</span></h3><p>使用哈希桶把 n-gram 投影到 384 维，得到轻量稀疏风格向量；批量函数负责堆叠矩阵。</p></div>
+      </div>
+      <p class="meta"><span class="tag">VECTOR_DIM = 384</span><span class="tag">NGRAM 2–4</span><span class="tag">无外部 embedding 服务</span></p>
+    </section>
+
+    <section class="slide" data-title="消息分块">
+      <div class="eyebrow">04 · 数据预处理</div>
+      <h2><span class="mono">load_messages</span> + <span class="mono">make_chunks</span></h2>
+      <div class="two-col grid g2">
+        <div class="card">
+          <h3>load_messages</h3>
+          <ul>
+            <li>从 JSON 读取原始消息。</li>
+            <li>保留有 sender、非空 content 的记录。</li>
+            <li>排除“系统消息”。</li>
+            <li>按 timestamp 升序排列，保证后续时间窗口成立。</li>
+          </ul>
+        </div>
+        <div class="card">
+          <h3>make_chunks</h3>
+          <ul>
+            <li>相邻消息间隔超过 10 分钟时切块。</li>
+            <li>单块最多 24 条消息。</li>
+            <li>拼接“时间 + 昵称 + 内容”，保留 msg_ids。</li>
+            <li>用 stable_hash 识别未变化 chunk，支持增量索引。</li>
+          </ul>
+        </div>
+      </div>
+      <div class="code" style="margin-top:18px">消息流 → 时间/数量双重切分 → Chunk(id, hash, start_ts, end_ts, senders, text, msg_ids)</div>
+    </section>
+
+    <section class="slide" data-title="实体与关系">
+      <div class="eyebrow">05 · 图谱构建</div>
+      <h2><span class="mono">build_user_directory</span> 到 <span class="mono">build_indexes</span></h2>
+      <div class="grid g3">
+        <div class="card"><h3>用户目录</h3><p><span class="mono">build_user_directory</span> 统计每个 sender 最常见的 display_name，建立 ID↔昵称双向映射。</p></div>
+        <div class="card"><h3>话题实体</h3><p><span class="mono">extract_terms</span> 提取中文词/英文词，过滤 STOP_TERMS 与 TOPIC_NOISE。</p></div>
+        <div class="card"><h3>@目标</h3><p><span class="mono">extract_at_targets</span> 按昵称长度降序匹配 <span class="mono">@昵称</span>，去重并返回用户 ID。</p></div>
+      </div>
+      <div class="card" style="margin-top:16px">
+        <h3>build_indexes 的主循环</h3>
+        <p>遍历每条消息，更新用户统计、来源 chunk 和 NetworkX 图。通过内部 <span class="mono">add(a,b,typ,weight)</span> 统一生成 relation_id、累计边权、记录事件次数与来源。</p>
+        <p style="margin-top:10px"><span class="tag">mention × 3.0</span><span class="tag">quote × 4.0</span><span class="tag">adjacent × 1.0</span><span class="tag">co_topic × 0.6</span></p>
+      </div>
+    </section>
+
+    <section class="slide" data-title="社区发现">
+      <div class="eyebrow">06 · 结构理解</div>
+      <h2><span class="mono">build_community_reports</span>：从关系图得到群体摘要</h2>
+      <div class="flow">
+        <div class="node"><b>best_partition</b><br>NetworkX 图 + 边权<br>随机种子 42</div>
+        <div class="arrow">→</div>
+        <div class="node"><b>groups</b><br>按社区编号聚合节点</div>
+        <div class="arrow">→</div>
+        <div class="node"><b>ranked members</b><br>按加权度取 Top 12</div>
+        <div class="arrow">→</div>
+        <div class="node"><b>summary</b><br>人数、内部关系、用户、话题</div>
+      </div>
+      <div class="grid g2">
+        <div class="card"><h3>输出什么</h3><p>每个社区形成一个 <span class="mono">CommunityReport</span>，可作为 global 检索的高层上下文。</p></div>
+        <div class="card"><h3>理解上的关键点</h3><p>社区不是人工标签，而是由关系权重驱动的结构发现结果；标题与摘要是可读化封装。</p></div>
+      </div>
+    </section>
+
+    <section class="slide" data-title="向量索引">
+      <div class="eyebrow">07 · 检索准备</div>
+      <h2><span class="mono">build_vector_indexes</span>：四类对象共用一套向量检索接口</h2>
+      <div class="grid g4">
+        <div class="card"><div class="number">01</div><h3>chunks</h3><p>原始聊天片段，回答“具体聊了什么”。</p></div>
+        <div class="card"><div class="number">02</div><h3>entities</h3><p>用户/话题描述，回答“谁或什么最相关”。</p></div>
+        <div class="card"><div class="number">03</div><h3>relations</h3><p>关系描述，回答“谁和谁有什么联系”。</p></div>
+        <div class="card"><div class="number">04</div><h3>communities</h3><p>社区摘要，回答“群体层面的主题与结构”。</p></div>
+      </div>
+      <p class="meta">每个索引保存 <span class="mono">ids + matrix</span>；真正查询时由 <span class="mono">hybrid_text_search</span> 结合向量相似度与字符词面重合。</p>
+    </section>
+
+    <section class="slide" data-title="检索策略">
+      <div class="eyebrow">08 · 查询逻辑</div>
+      <h2><span class="mono">retrieve</span> 是规则路由 + 混合召回</h2>
+      <div class="grid g2">
+        <div class="card">
+          <h3>hybrid_text_search</h3>
+          <p>查询清洗后生成 q-gram；得分 = 0.45 × 非负向量相似度 + 0.55 × 词面重合度。若核心串完整出现在文档中，再增加词面奖励。</p>
+        </div>
+        <div class="card">
+          <h3>问题类型识别</h3>
+          <p><span class="mono">_relation_question</span>、<span class="mono">_people_relation_question</span>、<span class="mono">_activity_question</span>、<span class="mono">_topic_question</span> 先判断意图，再决定召回范围。</p>
+        </div>
+      </div>
+      <div class="card" style="margin-top:16px">
+        <h3>三种模式</h3>
+        <p><span class="tag">local</span> 只保留实体、关系、邻域和原文片段　 <span class="tag">global</span> 只保留社区摘要　 <span class="tag">hybrid</span> 合并低层图谱与高层社区上下文</p>
+      </div>
+    </section>
+
+    <section class="slide" data-title="上下文封装">
+      <div class="eyebrow">09 · 结果输出</div>
+      <h2>从图结构到可读答案的辅助函数</h2>
+      <div class="grid g2">
+        <div class="card"><h3><span class="mono">related_graph_context</span></h3><p>获取选中实体的一跳邻居，去重后输出关系权重和边属性。</p></div>
+        <div class="card"><h3><span class="mono">_user_relation_context</span></h3><p>只保留用户—用户边，并按权重排序，服务于“谁和谁关系最强”。</p></div>
+        <div class="card"><h3><span class="mono">collect_chunks</span></h3><p>按 ID 收集有限数量原文片段，避免上下文无限膨胀。</p></div>
+        <div class="card"><h3><span class="mono">format_simple_result</span> / <span class="mono">format_context</span></h3><p>分别提供一句话答案和完整检索上下文，便于 CLI 直接展示或继续喂给下游模型。</p></div>
+      </div>
+      <div class="code" style="margin-top:18px">retrieve(...) → { simple_answer, low_level, high_level, chunks }</div>
+    </section>
+
+    <section class="slide" data-title="工程闭环">
+      <div class="eyebrow">10 · 运行与持久化</div>
+      <h2><span class="mono">main</span> 把离线建库和在线查询接起来</h2>
+      <div class="step"><div class="stepno">1</div><div><h3>index</h3><p>读取输入 JSON，必要时加载旧 state，调用 <span class="mono">build_indexes</span>，保存 pickle 并导出三张 CSV。</p></div></div>
+      <div class="step"><div class="stepno">2</div><div><h3>query</h3><p>加载 state，调用 <span class="mono">retrieve</span>，打印 <span class="mono">format_simple_result</span> 的一句话结果。</p></div></div>
+      <div class="step"><div class="stepno">3</div><div><h3>stats</h3><p>读取 state，输出 source、chunk/entity/relation/community 数量及图节点、边数量。</p></div></div>
+      <div class="code" style="margin-top:18px">python paper_lightrag.py index [--input ...] [--rebuild]
+python paper_lightrag.py query "谁和谁关系最密切" --mode hybrid --top-k 6
+python paper_lightrag.py stats</div>
+    </section>
+
+    <section class="slide" data-title="阶段结论">
+      <div class="eyebrow">11 · 阶段结论</div>
+      <h2>本阶段已完成：理解“每个函数为什么存在”</h2>
+      <div class="grid g3">
+        <div class="card"><div class="number">01</div><h3>数据侧</h3><p>明确消息过滤、排序、分块与增量复用策略。</p></div>
+        <div class="card"><div class="number">02</div><h3>图谱侧</h3><p>明确用户/话题节点、四类关系事件及边权累计方式。</p></div>
+        <div class="card"><div class="number">03</div><h3>检索侧</h3><p>明确 local/global/hybrid 路由、召回对象和上下文输出结构。</p></div>
+      </div>
+      <div class="card" style="margin-top:18px; border-left:5px solid var(--gold)">
+        <h3>下一步建议</h3>
+        <p>继续做运行验证：用实际输入执行 <span class="mono">index</span>、检查三张 CSV 与 pickle 是否一致，再用三类问题验证检索结果的可解释性。</p>
+      </div>
+    </section>
+  </main>
+  <div class="nav" aria-label="幻灯片导航">
+    <button id="prev" title="上一页" aria-label="上一页">←</button>
+    <button id="next" title="下一页" aria-label="下一页">→</button>
+  </div>
+  <div class="footer"><span id="count">01</span> / 12　·　← → / Space 翻页</div>
+  <div class="progress" id="progress"></div>
+  <script>
+    const slides = [...document.querySelectorAll(".slide")];
+    const count = document.getElementById("count");
+    const progress = document.getElementById("progress");
+    let index = 0;
+    function go(next) {
+      index = Math.max(0, Math.min(slides.length - 1, next));
+      slides.forEach((slide, i) => slide.classList.toggle("active", i === index));
+      count.textContent = String(index + 1).padStart(2, "0");
+      progress.style.width = `${((index + 1) / slides.length) * 100}%`;
+      location.hash = index + 1;
+    }
+    document.getElementById("prev").addEventListener("click", () => go(index - 1));
+    document.getElementById("next").addEventListener("click", () => go(index + 1));
+    document.addEventListener("keydown", event => {
+      if (["ArrowRight", "ArrowDown", "PageDown", " "].includes(event.key)) { event.preventDefault(); go(index + 1); }
+      if (["ArrowLeft", "ArrowUp", "PageUp"].includes(event.key)) { event.preventDefault(); go(index - 1); }
+      if (event.key === "Home") go(0);
+      if (event.key === "End") go(slides.length - 1);
+    });
+    const hash = Number(location.hash.slice(1));
+    go(Number.isInteger(hash) && hash > 0 ? hash - 1 : 0);
+  </script>
+</body>
+</html>
